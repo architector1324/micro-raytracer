@@ -17,7 +17,7 @@ raytrace --sphere --pos 0.5 0.5 10 --r 20 --color 1 0 0 --light --pos 0 0.5 1 --
 1. First create `scene.json` file contains scene information:
 ```json
 {
-    "renderer: [
+    "renderer": [
         {
             "type": "sphere",
             "pos": [0.5, 0.5, 10],
