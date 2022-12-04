@@ -10,7 +10,7 @@ It's something like [Zenity](https://github.com/GNOME/zenity), that provides you
 ### In-place in terminal
 Let's render simple scene with sphere in terminal:
 ```bash
-raytrace --sphere --pos 0.5 0.5 10 --r 20 --color 1 0 0 --light --pos 0 0.5 1 --pwr 1 --color 1 0 0 --frame 800 600 -o final.png
+raytrace --sphere --pos 0.5 0.5 10 --r 20 --color 1 0 0 --light --pos 0 0.5 1 --pwr 1 --color 1 0 0 --frame 800 600 -o out.png
 ```
 
 ### JSON frame and scene description
@@ -52,7 +52,7 @@ raytrace --sphere --pos 0.5 0.5 10 --r 20 --color 1 0 0 --light --pos 0 0.5 1 --
 3. Finally, run following command:
 
 ```bash
-raytrace scene.json frame.json -o final.png
+raytrace scene.json frame.json -o out.png
 ```
 
 ## API

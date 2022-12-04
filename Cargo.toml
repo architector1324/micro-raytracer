@@ -2,7 +2,7 @@
 name = "micro-raytracer"
 version = "0.1.0"
 edition = "2021"
-authors = ["Architector1324"]
+authors = ["Architector1324 <olegsajaxov@yandex.ru>"]
 repository = "https://github.com/architector1324/micro-raytracer"
 
 [[bin]]
@@ -12,3 +12,4 @@ name = "raytrace"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+image = "0.24.5"
