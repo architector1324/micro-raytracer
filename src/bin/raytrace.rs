@@ -15,8 +15,6 @@ struct Frame {
 
 
 fn main() {
-    println!("Hello, raytracer!");
-
     // match arguments
     let args = clap::Command::new("raytrace")
         .version("0.1.0")
@@ -25,36 +23,50 @@ fn main() {
         .args([
             clap::Arg::new("output")
                 .short('o')
+                .long("output")
                 .help("Final image output filename"),
 
             clap::Arg::new("scene")
                 .short('s')
+                .long("scene")
                 .help("Scene description json input filename"),
 
             clap::Arg::new("frame")
-                .short('s')
-                .help("Frame description json input filename")
+                .short('f')
+                .long("frame")
+                .help("Frame description json input filename"),
+
+            clap::Arg::new("res")
+                .long("res")
+                .num_args(2)
+                .help("Output image resolution")
         ])
         .get_matches();
 
+    // get frame
+    let mut frame = Frame {
+        res: (0, 0),
+        cam: Camera {
+            pos: (0.5, 0.0, 0.5),
+            dir: (0.0, 1.0, 0.0),
+            fov: 60.0
+        }
+    };
+
+    if let Some(mut pair) = args.get_many::<String>("res") {
+        let w =  pair.next().unwrap().parse::<u16>().unwrap();
+        let h =  pair.next().unwrap().parse::<u16>().unwrap();
+        
+        frame.res = (w, h);
+    } else if let Some(frame_json_filename) = args.get_one::<String>("frame") {
+        let frame_json = std::fs::read_to_string(frame_json_filename).unwrap();
+        frame = serde_json::from_str(frame_json.as_str()).unwrap();
+    }
+
+    println!("{:?}", frame.cam.pos);
 
     // raytrace
-    let frame_json = r#"
-        {
-            "res": [800, 600],
-            "cam": {
-                "pos": [0.5, 0, 0.5],
-                "dir": [0, 1, 0],
-                "fov": 60
-            }
-        }
-    "#;
-
-    let frame: Frame = serde_json::from_str(frame_json).unwrap();
-
-    println!("{:?}", frame.res);
-
-    let img = image::ImageBuffer::from_fn(800, 600, |_, _| {
+    let img = image::ImageBuffer::from_fn(frame.res.0.into(), frame.res.1.into(), |_, _| {
         image::Rgb([255u8, 255u8, 255u8])
     });
 
