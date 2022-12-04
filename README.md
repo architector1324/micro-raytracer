@@ -40,7 +40,7 @@ raytrace --sphere --pos 0.5 0.5 10 --r 20 --color 1 0 0 --light --pos 0 0.5 1 --
 2. Next create `frame.json` file contains output frame information:
 ```json
 {
-    "resolution": [800, 600],
+    "res": [800, 600],
     "cam": {
         "pos": [0.5, 0, 0.5],
         "dir": [0, 1, 0],
@@ -52,7 +52,7 @@ raytrace --sphere --pos 0.5 0.5 10 --r 20 --color 1 0 0 --light --pos 0 0.5 1 --
 3. Finally, run following command:
 
 ```bash
-raytrace scene.json frame.json -o out.png
+raytrace --scene scene.json --frame frame.json -o out.png
 ```
 
 ## API
