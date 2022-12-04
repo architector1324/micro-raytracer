@@ -1,13 +1,14 @@
 use serde::{Serialize, Deserialize};
 
-#[derive(Serialize, Deserialize)]
+// raytracer
+#[derive(Serialize, Deserialize, Debug)]
 struct Camera {
     pos: (f32, f32, f32),
     dir: (f32, f32, f32),
     fov: f32
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 struct Frame {
     res: (u16, u16),
     cam: Camera
@@ -15,8 +16,8 @@ struct Frame {
 
 
 fn main() {
-    // match arguments
-    let args = clap::Command::new("raytrace")
+    // parse cli
+    let cli = clap::Command::new("raytrace")
         .version("0.1.0")
         .author("Architector1324 <olegsajaxov@yandex.ru>")
         .about("Tiny raytracing microservice.")
@@ -38,14 +39,19 @@ fn main() {
 
             clap::Arg::new("res")
                 .long("res")
-                .num_args(2)
-                .help("Output image resolution")
+                .value_names(["w", "h"])
+                .help("Frame output image resolution"),
+
+            clap::Arg::new("cam")
+                .long("cam")
+                .value_names(["pos.x", "pos.y", "pos.z", "dir.x", "dir.y", "dir.z", "fov"])
+                .help("Frame camera")
         ])
         .get_matches();
 
     // get frame
     let mut frame = Frame {
-        res: (0, 0),
+        res: (800, 600),
         cam: Camera {
             pos: (0.5, 0.0, 0.5),
             dir: (0.0, 1.0, 0.0),
@@ -53,17 +59,35 @@ fn main() {
         }
     };
 
-    if let Some(mut pair) = args.get_many::<String>("res") {
-        let w =  pair.next().unwrap().parse::<u16>().unwrap();
-        let h =  pair.next().unwrap().parse::<u16>().unwrap();
-        
-        frame.res = (w, h);
-    } else if let Some(frame_json_filename) = args.get_one::<String>("frame") {
+    if let Some(frame_json_filename) = cli.get_one::<String>("frame") {
         let frame_json = std::fs::read_to_string(frame_json_filename).unwrap();
         frame = serde_json::from_str(frame_json.as_str()).unwrap();
     }
 
-    println!("{:?}", frame.cam.pos);
+    if let Some(mut pair) = cli.get_many::<String>("res") {
+        frame.res = (
+            pair.next().unwrap().parse::<u16>().unwrap(),
+            pair.next().unwrap().parse::<u16>().unwrap()
+        );
+    }
+
+    if let Some(mut cam_args) = cli.get_many::<String>("cam") {
+        frame.cam = Camera {
+            pos: (
+                cam_args.next().unwrap().parse::<f32>().unwrap(),
+                cam_args.next().unwrap().parse::<f32>().unwrap(),
+                cam_args.next().unwrap().parse::<f32>().unwrap()
+            ),
+            dir: (
+                cam_args.next().unwrap().parse::<f32>().unwrap(),
+                cam_args.next().unwrap().parse::<f32>().unwrap(),
+                cam_args.next().unwrap().parse::<f32>().unwrap()
+            ),
+            fov: cam_args.next().unwrap().parse::<f32>().unwrap()
+        }
+    }
+
+    println!("{:?}", frame);
 
     // raytrace
     let img = image::ImageBuffer::from_fn(frame.res.0.into(), frame.res.1.into(), |_, _| {
@@ -71,7 +95,7 @@ fn main() {
     });
 
     // save output
-    match args.get_one::<String>("output") {
+    match cli.get_one::<String>("output") {
         Some(filename) => img.save(filename).unwrap(),
         None => img.save("out.png").unwrap()
     }
