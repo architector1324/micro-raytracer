@@ -38,7 +38,7 @@ TBD...
         {
             "type": "sphere",
             "body": {
-                "pos": [0.0, 1.0, 0.0],
+                "pos": [0, 1.0, 0],
                 "r": 0.5,
                 "mat": {
                     "albedo": [1, 1, 1]
@@ -61,7 +61,7 @@ TBD...
 {
     "res": [800, 600],
     "cam": {
-        "pos": [0.0, 0, 0.0],
+        "pos": [0, 0, 0],
         "dir": [0, 1, 0],
         "fov": 90
     }
@@ -71,7 +71,7 @@ TBD...
 3. Finally, run following command:
 
 ```bash
-raytrace --scene scene.json --frame frame.json -o out.png
+raytrace --scene scene.json --frame frame.json
 ```
 
 ## API

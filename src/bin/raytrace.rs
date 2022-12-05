@@ -6,6 +6,12 @@ use clap::{Parser};
 #[derive(Parser)]
 #[command(author, version, about = "Tiny raytracing microservice.", long_about = None)]
 struct CLI {
+    #[arg(short, long, action, help = "Print frame and scene json info")]
+    verbose: bool,
+
+    #[arg(long, action, help = "Print frame and scene json info with pretty")]
+    pretty: bool,
+
     #[arg(short, long, help = "Final image output filename", value_name = "FILE.EXT")]
     output: Option<std::path::PathBuf>,
 
@@ -288,7 +294,14 @@ fn main() {
         }
     }
 
-    println!("{:?}", frame);
+    if cli.verbose {
+        // println!("{:?}", frame);
+        if cli.pretty {
+            println!("Frame:\n{}\n", serde_json::to_string_pretty(&frame).unwrap());
+        } else {
+            println!("Frame:\n{}\n", serde_json::to_string(&frame).unwrap());
+        }
+    }
 
     // get scene
     let mut scene: Scene = Default::default();
@@ -298,9 +311,20 @@ fn main() {
         scene = serde_json::from_str(scene_json.as_str()).unwrap();
     }
 
-    println!("{:?}", scene);
+    if cli.verbose {
+        // println!("{:?}", scene);
+        if cli.pretty {
+            println!("Scene:\n{}\n", serde_json::to_string_pretty(&scene).unwrap());
+        } else {
+            println!("Scene:\n{}\n", serde_json::to_string(&scene).unwrap());
+        }
+    }
 
     // raytrace
+    if cli.verbose {
+        println!("Rendering image: {}x{}", frame.res.0, frame.res.1);
+    }
+    
     let mut img = image::ImageBuffer::new(frame.res.0.into(), frame.res.1.into());
     RayTracer::raytrace(&scene, &frame, &mut img);
 
