@@ -1,4 +1,30 @@
 use serde::{Serialize, Deserialize};
+use clap::{Parser};
+
+
+// cli
+#[derive(Parser)]
+#[command(author, version, about = "Tiny raytracing microservice.", long_about = None)]
+struct CLI {
+    #[arg(short, long, help = "Final image output filename", value_name = "FILE.EXT")]
+    output: Option<std::path::PathBuf>,
+
+    #[arg(short, long, help = "Scene description json input filename", value_name = "FILE.json")]
+    scene: Option<std::path::PathBuf>,
+
+    #[arg(short, long, help = "Frame description json input filename", value_name = "FILE.json")]
+    frame: Option<std::path::PathBuf>,
+
+    #[arg(long, value_names = ["w", "h"], help = "Frame output image resolution")]
+    res: Option<Vec<u16>>,
+
+    #[arg(long, value_names = ["pos", "dir", "fov"], num_args = 1..=10,  help = "Frame camera")]
+    cam: Option<Vec<String>>,
+
+    #[arg(long, value_names = ["pos", "r", "col"], num_args = 1.., action = clap::ArgAction::Append, help = "Render sphere")]
+    sphere: Option<Vec<String>>
+}
+
 
 // raytracer
 #[derive(Serialize, Deserialize, Debug)]
@@ -17,45 +43,7 @@ struct Frame {
 
 fn main() {
     // parse cli
-    let cli = clap::Command::new("raytrace")
-        .version("0.1.0")
-        .author("Architector1324 <olegsajaxov@yandex.ru>")
-        .about("Tiny raytracing microservice.")
-        .args([
-            clap::Arg::new("output")
-                .short('o')
-                .long("output")
-                .help("Final image output filename"),
-
-            clap::Arg::new("scene")
-                .short('s')
-                .long("scene")
-                .help("Scene description json input filename"),
-
-            clap::Arg::new("frame")
-                .short('f')
-                .long("frame")
-                .help("Frame description json input filename"),
-
-            clap::Arg::new("res")
-                .long("res")
-                .value_names(["w", "h"])
-                .help("Frame output image resolution"),
-
-            clap::Arg::new("cam")
-                .long("cam")
-                .value_names(["pos", "dir", "fov"])
-                .num_args(1..)
-                .help("Frame camera"),
-
-            clap::Arg::new("sphere")
-                .long("sphere")
-                .value_names(["pos", "r", "col"])
-                .num_args(1..)
-                .action(clap::ArgAction::Append)
-                .help("Render sphere")
-        ])
-        .get_matches();
+    let cli = CLI::parse();
 
     // get frame
     let mut frame = Frame {
@@ -67,36 +55,38 @@ fn main() {
         }
     };
 
-    if let Some(frame_json_filename) = cli.get_one::<String>("frame") {
+    if let Some(frame_json_filename) = cli.frame {
         let frame_json = std::fs::read_to_string(frame_json_filename).unwrap();
         frame = serde_json::from_str(frame_json.as_str()).unwrap();
     }
 
-    if let Some(mut pair) = cli.get_many::<String>("res") {
+    if let Some(pair) = cli.res {
         frame.res = (
-            pair.next().unwrap().parse::<u16>().unwrap(),
-            pair.next().unwrap().parse::<u16>().unwrap()
+            pair.get(0).unwrap().clone(),
+            pair.get(1).unwrap().clone()
         );
     }
 
-    if let Some(mut cam_args) = cli.get_many::<String>("cam") {
-        while let Some(arg) = cam_args.next() {
+    if let Some(cam_args) = cli.cam {
+        let mut it = cam_args.iter();
+
+        while let Some(arg) = it.next() {
             match arg.as_str() {
                 "pos:" => {
                     frame.cam.pos = (
-                        cam_args.next().unwrap().parse::<f32>().unwrap(),
-                        cam_args.next().unwrap().parse::<f32>().unwrap(),
-                        cam_args.next().unwrap().parse::<f32>().unwrap()
+                        it.next().unwrap().parse::<f32>().unwrap(),
+                        it.next().unwrap().parse::<f32>().unwrap(),
+                        it.next().unwrap().parse::<f32>().unwrap()
                     )
                 },
                 "dir:" => {
                     frame.cam.dir = (
-                        cam_args.next().unwrap().parse::<f32>().unwrap(),
-                        cam_args.next().unwrap().parse::<f32>().unwrap(),
-                        cam_args.next().unwrap().parse::<f32>().unwrap()
+                        it.next().unwrap().parse::<f32>().unwrap(),
+                        it.next().unwrap().parse::<f32>().unwrap(),
+                        it.next().unwrap().parse::<f32>().unwrap()
                     )
                 },
-                "fov:" => frame.cam.fov = cam_args.next().unwrap().parse::<f32>().unwrap(),
+                "fov:" => frame.cam.fov = it.next().unwrap().parse::<f32>().unwrap(),
                 _ => ()
             }
         }
@@ -110,7 +100,7 @@ fn main() {
     });
 
     // save output
-    match cli.get_one::<String>("output") {
+    match cli.output {
         Some(filename) => img.save(filename).unwrap(),
         None => img.save("out.png").unwrap()
     }
