@@ -52,7 +52,7 @@ struct Frame {
 
 #[derive(Serialize, Deserialize, Debug)]
 struct Material {
-    color: Vec3f
+    albedo: Vec3f
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -189,28 +189,54 @@ impl Renderer {
         }
     }
 
-    fn get_color(&self, ray: &Ray) -> Vec3f {
+    fn normal(&self, hit: &Vec3f) -> Vec3f {
         match self {
-            Renderer::Sphere {pos: _, r: _, mat} => mat.color.clone()
+            Renderer::Sphere {pos, r: _, mat: _} => {
+                pos.sub(hit).norm()
+            }
+        }
+    }
+
+    fn get_color(&self, ray: &Ray, scene: &Scene) -> Vec3f {
+        match self {
+            Renderer::Sphere {pos: _, r: _, mat} => {
+                if let Some(lights) = &scene.light {
+                    let mut color = mat.albedo.clone();
+
+                    for light in lights {
+                        let hit = ray.orig.add(&ray.dir.mul_s(ray.t));
+                        let norm = self.normal(&hit);
+                        let l = hit.sub(&light.pos);
+
+                        let dt = norm.dot(&l.norm()).max(0.0);
+
+                        color = color.add(&light.color.mul_s(light.pwr)).mul_s(dt / 2.0);
+                    }
+
+                    return color;
+                }
+                Default::default()
+            }
         }
     }
 }
 
 impl RayTracer {
-    fn find_closest_intersection<'a>(scene: &'a Scene, ray: &Ray) -> Option<&'a Renderer> {
+    fn find_closest_intersection<'a>(scene: &'a Scene, ray: &Ray) -> Option<(&'a Renderer, f32)> {
         let hits = scene.renderer.as_deref()?.iter().map(|obj| (obj, obj.intersect(&ray))).filter(|p| p.1.is_some()).map(|p| (p.0, p.1.unwrap()));
-        Some(hits.min_by(|max, p| max.1.total_cmp(&p.1))?.0)
+        hits.min_by(|max, p| max.1.total_cmp(&p.1))
     }
 
     fn raytrace(scene: &Scene, frame: &Frame, out: &mut image::RgbImage) {
         for (x, y, pixel) in out.enumerate_pixels_mut() {
             *pixel = image::Rgb([0, 0, 0]);
     
-            let ray = Ray::cast(x as f32, y as f32, frame);
+            let mut ray = Ray::cast(x as f32, y as f32, frame);
             let hit = RayTracer::find_closest_intersection(scene, &ray);
 
-            if let Some(obj) = hit {
-                let col = obj.get_color(&ray);
+            if let Some((obj, t)) = hit {
+                ray.t = t;
+                let col = obj.get_color(&ray, scene);
                 *pixel = image::Rgb([(255.0 * col.0) as u8, (255.0 * col.1) as u8, (255.0 * col.2) as u8]);
             }
         }
