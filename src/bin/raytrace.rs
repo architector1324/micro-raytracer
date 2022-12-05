@@ -27,10 +27,20 @@ struct CLI {
 
 
 // raytracer
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct Vec3f (f32, f32, f32);
+
+#[derive(Debug)]
+struct Ray {
+    orig: Vec3f,
+    dir: Vec3f,
+    t: f32
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 struct Camera {
-    pos: (f32, f32, f32),
-    dir: (f32, f32, f32),
+    pos: Vec3f,
+    dir: Vec3f,
     fov: f32
 }
 
@@ -42,7 +52,7 @@ struct Frame {
 
 #[derive(Serialize, Deserialize, Debug)]
 struct Material {
-    color: (f32, f32, f32)
+    color: Vec3f
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -50,7 +60,7 @@ struct Material {
 #[serde(rename_all = "lowercase")]
 enum Renderer {
     Sphere {
-        pos: (f32, f32, f32),
+        pos: Vec3f,
         r: f32,
         mat: Material
     }
@@ -58,9 +68,9 @@ enum Renderer {
 
 #[derive(Serialize, Deserialize, Debug)]
 struct Light {
-    pos: (f32, f32, f32),
+    pos: Vec3f,
     pwr: f32,
-    color: (f32, f32, f32)
+    color: Vec3f
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -70,19 +80,146 @@ struct Scene {
 }
 
 
+impl Vec3f {
+    fn add(&self, a: &Vec3f) -> Vec3f {
+        Vec3f(self.0 + a.0, self.1 + a.1, self.2 + a.2)
+    }
+
+    fn sub(&self, a: &Vec3f) -> Vec3f {
+        Vec3f(self.0 - a.0, self.1 - a.1, self.2 - a.2)
+    }
+
+    fn mul_s(&self, a: f32) -> Vec3f {
+        Vec3f(self.0 * a, self.1 * a, self.2 * a)
+    }
+
+    fn dot(&self, a: &Vec3f) -> f32 {
+        self.0 * a.0 + self.1 * a.1 + self.2 * a.2
+    }
+
+    fn mag(&self) -> f32 {
+        f32::sqrt(self.0.powf(2.0) + self.1.powf(2.0) + self.2.powf(2.0))
+    }
+
+    fn norm(&self) -> Vec3f {
+        let mag = 1.0 / self.mag();
+        self.mul_s(mag)
+    }
+}
+
+impl Ray {
+    fn cast(x: f32, y: f32, frame: &Frame) -> Ray {
+        let w = frame.res.0 as f32;
+        let h = frame.res.1 as f32;
+
+        let aspect = w / h;
+        let tan_fov = (frame.cam.fov / 2.0).to_radians().tan();
+
+        Ray {
+            orig: frame.cam.pos.clone(),
+            dir: Vec3f(
+                aspect * (2.0 * (x + 0.5) / w - 1.0),
+                1.0 / tan_fov,
+                -(2.0 * (y + 0.5) / h - 1.0)
+            ).norm(),
+            t: 20000.0
+        }
+    }
+}
+
+impl Default for Vec3f {
+    fn default() -> Self {
+        Vec3f(0.0, 0.0, 0.0)
+    }
+}
+
+impl Default for Camera {
+    fn default() -> Self {
+        Camera {
+            pos: Vec3f(0.0, 0.0, 0.0),
+            dir: Vec3f(0.0, 1.0, 0.0),
+            fov: 90.0
+        }
+    }
+}
+
+impl Default for Frame {
+    fn default() -> Self {
+        Frame {
+            res: (800, 600),
+            cam: Default::default()
+        }
+    }
+}
+
+impl Default for Scene {
+    fn default() -> Self {
+        Scene {
+            renderer: None,
+            light: None
+        }
+    }
+}
+
+impl Renderer {
+    fn intersect(&self, ray: &Ray) -> Option<f32> {
+        match self {
+            Renderer::Sphere {pos, r, mat: _} => {
+                let o = ray.orig.sub(pos);
+
+                let a = ray.dir.dot(&ray.dir);
+                let b = 2.0 * o.dot(&ray.dir);
+                let c = o.dot(&o) - r.powf(2.0);
+
+                let disc = b.powf(2.0) - 4.0 * a * c;
+
+                if disc < 0.0 {
+                    return None
+                }
+
+                let t = (-b - disc.sqrt()) / (2.0 * a);
+
+                if t >= 0.0 {
+                    return Some(t);
+                }
+
+                None
+            }
+        }
+    }
+
+    fn get_color(&self, ray: &Ray) -> Vec3f {
+        match self {
+            Renderer::Sphere {pos: _, r: _, mat} => mat.color.clone()
+        }
+    }
+}
+
+fn raytrace(scene: &Scene, frame: &Frame, out: &mut image::RgbImage) {
+    for (x, y, pixel) in out.enumerate_pixels_mut() {
+        *pixel = image::Rgb([0, 0, 0]);
+
+        if let Some(scene) = &scene.renderer {
+            let ray = Ray::cast(x as f32, y as f32, frame);
+    
+            for obj in scene.iter() {
+                let hit = obj.intersect(&ray);
+
+                if let Some(_) = hit {
+                    let col = obj.get_color(&ray);
+                    *pixel = image::Rgb([(255.0 * col.0) as u8, (255.0 * col.1) as u8, (255.0 * col.2) as u8]);
+                }
+            }
+        }
+    }
+}
+
 fn main() {
     // parse cli
     let cli = CLI::parse();
 
     // get frame
-    let mut frame = Frame {
-        res: (800, 600),
-        cam: Camera {
-            pos: (0.5, 0.0, 0.5),
-            dir: (0.0, 1.0, 0.0),
-            fov: 60.0
-        }
-    };
+    let mut frame: Frame = Default::default();
 
     if let Some(frame_json_filename) = cli.frame {
         let frame_json = std::fs::read_to_string(frame_json_filename).unwrap();
@@ -102,14 +239,14 @@ fn main() {
         while let Some(arg) = it.next() {
             match arg.as_str() {
                 "pos:" => {
-                    frame.cam.pos = (
+                    frame.cam.pos = Vec3f(
                         it.next().unwrap().parse::<f32>().unwrap(),
                         it.next().unwrap().parse::<f32>().unwrap(),
                         it.next().unwrap().parse::<f32>().unwrap()
                     )
                 },
                 "dir:" => {
-                    frame.cam.dir = (
+                    frame.cam.dir = Vec3f(
                         it.next().unwrap().parse::<f32>().unwrap(),
                         it.next().unwrap().parse::<f32>().unwrap(),
                         it.next().unwrap().parse::<f32>().unwrap()
@@ -124,10 +261,7 @@ fn main() {
     println!("{:?}", frame);
 
     // get scene
-    let mut scene = Scene {
-        renderer: None,
-        light: None
-    };
+    let mut scene: Scene = Default::default();
 
     if let Some(scene_json_filename) = cli.scene {
         let scene_json = std::fs::read_to_string(scene_json_filename).unwrap();
@@ -137,9 +271,8 @@ fn main() {
     println!("{:?}", scene);
 
     // raytrace
-    let img = image::ImageBuffer::from_fn(frame.res.0.into(), frame.res.1.into(), |_, _| {
-        image::Rgb([255u8, 255u8, 255u8])
-    });
+    let mut img = image::ImageBuffer::new(frame.res.0.into(), frame.res.1.into());
+    raytrace(&scene, &frame, &mut img);
 
     // save output
     match cli.output {
