@@ -79,6 +79,7 @@ struct Scene {
     light: Option<Vec<Light>>
 }
 
+struct RayTracer;
 
 impl Vec3f {
     fn add(&self, a: &Vec3f) -> Vec3f {
@@ -195,24 +196,27 @@ impl Renderer {
     }
 }
 
-fn raytrace(scene: &Scene, frame: &Frame, out: &mut image::RgbImage) {
-    for (x, y, pixel) in out.enumerate_pixels_mut() {
-        *pixel = image::Rgb([0, 0, 0]);
+impl RayTracer {
+    fn find_closest_intersection<'a>(scene: &'a Scene, ray: &Ray) -> Option<&'a Renderer> {
+        let hits = scene.renderer.as_deref()?.iter().map(|obj| (obj, obj.intersect(&ray))).filter(|p| p.1.is_some()).map(|p| (p.0, p.1.unwrap()));
+        Some(hits.min_by(|max, p| max.1.total_cmp(&p.1))?.0)
+    }
 
-        if let Some(scene) = &scene.renderer {
-            let ray = Ray::cast(x as f32, y as f32, frame);
+    fn raytrace(scene: &Scene, frame: &Frame, out: &mut image::RgbImage) {
+        for (x, y, pixel) in out.enumerate_pixels_mut() {
+            *pixel = image::Rgb([0, 0, 0]);
     
-            for obj in scene.iter() {
-                let hit = obj.intersect(&ray);
+            let ray = Ray::cast(x as f32, y as f32, frame);
+            let hit = RayTracer::find_closest_intersection(scene, &ray);
 
-                if let Some(_) = hit {
-                    let col = obj.get_color(&ray);
-                    *pixel = image::Rgb([(255.0 * col.0) as u8, (255.0 * col.1) as u8, (255.0 * col.2) as u8]);
-                }
+            if let Some(obj) = hit {
+                let col = obj.get_color(&ray);
+                *pixel = image::Rgb([(255.0 * col.0) as u8, (255.0 * col.1) as u8, (255.0 * col.2) as u8]);
             }
         }
     }
 }
+
 
 fn main() {
     // parse cli
@@ -272,7 +276,7 @@ fn main() {
 
     // raytrace
     let mut img = image::ImageBuffer::new(frame.res.0.into(), frame.res.1.into());
-    raytrace(&scene, &frame, &mut img);
+    RayTracer::raytrace(&scene, &frame, &mut img);
 
     // save output
     match cli.output {
