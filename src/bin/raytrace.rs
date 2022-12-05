@@ -44,8 +44,16 @@ fn main() {
 
             clap::Arg::new("cam")
                 .long("cam")
-                .value_names(["pos.x", "pos.y", "pos.z", "dir.x", "dir.y", "dir.z", "fov"])
-                .help("Frame camera")
+                .value_names(["pos", "dir", "fov"])
+                .num_args(1..)
+                .help("Frame camera"),
+
+            clap::Arg::new("sphere")
+                .long("sphere")
+                .value_names(["pos", "r", "col"])
+                .num_args(1..)
+                .action(clap::ArgAction::Append)
+                .help("Render sphere")
         ])
         .get_matches();
 
@@ -72,18 +80,25 @@ fn main() {
     }
 
     if let Some(mut cam_args) = cli.get_many::<String>("cam") {
-        frame.cam = Camera {
-            pos: (
-                cam_args.next().unwrap().parse::<f32>().unwrap(),
-                cam_args.next().unwrap().parse::<f32>().unwrap(),
-                cam_args.next().unwrap().parse::<f32>().unwrap()
-            ),
-            dir: (
-                cam_args.next().unwrap().parse::<f32>().unwrap(),
-                cam_args.next().unwrap().parse::<f32>().unwrap(),
-                cam_args.next().unwrap().parse::<f32>().unwrap()
-            ),
-            fov: cam_args.next().unwrap().parse::<f32>().unwrap()
+        while let Some(arg) = cam_args.next() {
+            match arg.as_str() {
+                "pos:" => {
+                    frame.cam.pos = (
+                        cam_args.next().unwrap().parse::<f32>().unwrap(),
+                        cam_args.next().unwrap().parse::<f32>().unwrap(),
+                        cam_args.next().unwrap().parse::<f32>().unwrap()
+                    )
+                },
+                "dir:" => {
+                    frame.cam.dir = (
+                        cam_args.next().unwrap().parse::<f32>().unwrap(),
+                        cam_args.next().unwrap().parse::<f32>().unwrap(),
+                        cam_args.next().unwrap().parse::<f32>().unwrap()
+                    )
+                },
+                "fov:" => frame.cam.fov = cam_args.next().unwrap().parse::<f32>().unwrap(),
+                _ => ()
+            }
         }
     }
 
