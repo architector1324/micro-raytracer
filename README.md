@@ -1,6 +1,6 @@
 # Raytracing Microservice
 
-Tiny raytracing microservice written in [Rust](https://www.rust-lang.org/).
+Lightweight raytracing microservice written in [Rust](https://www.rust-lang.org/).
 
 The main idea is to use flags or [json](https://www.json.org/json-en.html) for generating images in terminal, shell scripts, http servers and etc.
 
@@ -44,7 +44,7 @@ TBD...
             }
         }
     ],
-    "lights": [
+    "light": [
         {
             "pos": [0, 0.5, 1],
             "pwr": 1,

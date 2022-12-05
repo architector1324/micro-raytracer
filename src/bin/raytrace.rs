@@ -40,6 +40,35 @@ struct Frame {
     cam: Camera
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+struct Material {
+    color: (f32, f32, f32)
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(tag = "type", content = "body")]
+#[serde(rename_all = "lowercase")]
+enum Renderer {
+    Sphere {
+        pos: (f32, f32, f32),
+        r: f32,
+        mat: Material
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct Light {
+    pos: (f32, f32, f32),
+    pwr: f32,
+    color: (f32, f32, f32)
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct Scene {
+    renderer: Option<Vec<Renderer>>,
+    light: Option<Vec<Light>>
+}
+
 
 fn main() {
     // parse cli
@@ -93,6 +122,19 @@ fn main() {
     }
 
     println!("{:?}", frame);
+
+    // get scene
+    let mut scene = Scene {
+        renderer: None,
+        light: None
+    };
+
+    if let Some(scene_json_filename) = cli.scene {
+        let scene_json = std::fs::read_to_string(scene_json_filename).unwrap();
+        scene = serde_json::from_str(scene_json.as_str()).unwrap();
+    }
+
+    println!("{:?}", scene);
 
     // raytrace
     let img = image::ImageBuffer::from_fn(frame.res.0.into(), frame.res.1.into(), |_, _| {
