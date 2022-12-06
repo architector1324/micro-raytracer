@@ -37,12 +37,10 @@ TBD...
     "renderer": [
         {
             "type": "sphere",
-            "body": {
-                "pos": [0, 0, 0],
-                "r": 0.5,
-                "mat": {
-                    "albedo": [1, 1, 1]
-                }
+            "pos": [0, 0, 0],
+            "r": 0.5,
+            "mat": {
+                "albedo": [1, 1, 1]
             }
         }
     ],

@@ -65,14 +65,19 @@ struct Material {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-#[serde(tag = "type", content = "body")]
+#[serde(tag = "type", rename_all = "lowercase")]
+enum RendererKind {
+    Sphere {r: f32},
+    Plane {}
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "lowercase")]
-enum Renderer {
-    Sphere {
-        pos: Vec3f,
-        r: f32,
-        mat: Material
-    }
+struct Renderer {
+    #[serde(flatten)]
+    kind: RendererKind,
+    mat: Material,
+    pos: Vec3f,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -173,9 +178,9 @@ impl Default for Scene {
 
 impl Renderer {
     fn intersect(&self, ray: &Ray) -> Option<f32> {
-        match self {
-            Renderer::Sphere {pos, r, mat: _} => {
-                let o = ray.orig.sub(pos);
+        match self.kind {
+            RendererKind::Sphere{r} => {
+                let o = ray.orig.sub(&self.pos);
 
                 let a = ray.dir.dot(&ray.dir);
                 let b = 2.0 * o.dot(&ray.dir);
@@ -194,39 +199,32 @@ impl Renderer {
                 }
 
                 None
-            }
+            },
+            RendererKind::Plane{} => todo!()
         }
     }
 
     fn normal(&self, hit: &Vec3f) -> Vec3f {
-        match self {
-            Renderer::Sphere {pos, r: _, mat: _} => {
-                pos.sub(hit).norm()
-            }
-        }
+        self.pos.sub(hit).norm()
     }
 
     fn get_color(&self, ray: &Ray, scene: &Scene) -> Vec3f {
-        match self {
-            Renderer::Sphere {pos: _, r: _, mat} => {
-                if let Some(lights) = &scene.light {
-                    let mut color: Vec3f = Default::default();
+        if let Some(lights) = &scene.light {
+            let mut color: Vec3f = Default::default();
 
-                    for light in lights {
-                        let hit = ray.orig.add(&ray.dir.mul_s(ray.t));
-                        let norm = self.normal(&hit);
-                        let l = hit.sub(&light.pos);
+            for light in lights {
+                let hit = ray.orig.add(&ray.dir.mul_s(ray.t));
+                let norm = self.normal(&hit);
+                let l = hit.sub(&light.pos);
 
-                        let power = light.pwr * norm.dot(&l.norm()).max(0.0) / (2.0 * l.mag().powf(2.0));
+                let power = light.pwr * norm.dot(&l.norm()).max(0.0) / (2.0 * l.mag().powf(2.0));
 
-                        color = color.add(&mat.albedo.add(&light.color).mul_s(power));
-                    }
-
-                    return color;
-                }
-                Default::default()
+                color = color.add(&self.mat.albedo.add(&light.color).mul_s(power));
             }
+
+            return color;
         }
+        Default::default()
     }
 }
 
@@ -315,9 +313,9 @@ fn main() {
     }
 
     if let Some(spheres) = cli.sphere {
-        let sphere = Renderer::Sphere {
+        let sphere = Renderer {
+            kind: RendererKind::Sphere{r: 0.5},
             pos: Vec3f(0.0, 0.0, 0.0),
-            r: 0.5,
             mat: Material {
                 albedo: Vec3f(1.0, 1.0, 1.0)
             }
