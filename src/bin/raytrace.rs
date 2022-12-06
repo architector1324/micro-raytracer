@@ -105,7 +105,7 @@ impl Vec3f {
     }
 
     fn mag(&self) -> f32 {
-        f32::sqrt(self.0.powf(2.0) + self.1.powf(2.0) + self.2.powf(2.0))
+        (self.0.powf(2.0) + self.1.powf(2.0) + self.2.powf(2.0)).sqrt()
     }
 
     fn norm(&self) -> Vec3f {
@@ -207,16 +207,16 @@ impl Renderer {
         match self {
             Renderer::Sphere {pos: _, r: _, mat} => {
                 if let Some(lights) = &scene.light {
-                    let mut color = mat.albedo.clone();
+                    let mut color: Vec3f = Default::default();
 
                     for light in lights {
                         let hit = ray.orig.add(&ray.dir.mul_s(ray.t));
                         let norm = self.normal(&hit);
                         let l = hit.sub(&light.pos);
 
-                        let dt = norm.dot(&l.norm()).max(0.0);
+                        let power = light.pwr * norm.dot(&l.norm()).max(0.0) / (2.0 * l.mag().powf(2.0));
 
-                        color = color.add(&light.color.mul_s(light.pwr)).mul_s(dt / 2.0);
+                        color = color.add(&mat.albedo.add(&light.color).mul_s(power));
                     }
 
                     return color;
