@@ -10,18 +10,18 @@ It's something like [Zenity](https://github.com/GNOME/zenity), that provides you
 ### In-place in terminal
 Let's render simple scene with sphere in terminal:
 ```bash
-raytrace --sphere --light pos: -0.5 -1 0.5 pwr: 0.5
+raytrace --sphere --light pos: -0.5 -1 0.5
 ```
 
 It will produce an PNG image 800x600:
-TBD...
+![image](doc/out0.png)
 
 Now let's change a resolution and output file:
 ```bash
 raytrace --sphere --light pos: -0.5 -1 0.5 --res 1280 720 -o final.ppm
 ```
 
-TBD...
+![image](doc/out1.png)
 
 Let's change some color of sphere:
 ```bash
@@ -50,7 +50,12 @@ TBD...
         {
             "pos": [-0.5, -1, 0.5],
             "pwr": 0.5,
-            "color": [1, 1, 1]
+            "color": [1, 0, 0]
+        },
+        {
+            "pos": [0.5, -1, 0.5],
+            "pwr": 0.5,
+            "color": [0, 0, 1]
         }
     ]
 }
@@ -73,6 +78,8 @@ TBD...
 ```bash
 raytrace --scene scene.json --frame frame.json
 ```
+
+![image](doc/out2.png)
 
 ## API
 TBD...

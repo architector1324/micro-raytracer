@@ -27,8 +27,11 @@ struct CLI {
     #[arg(long, value_names = ["pos", "dir", "fov"], num_args = 1..=10,  help = "Frame camera")]
     cam: Option<Vec<String>>,
 
-    #[arg(long, value_names = ["pos", "r", "col"], num_args = 1.., action = clap::ArgAction::Append, help = "Render sphere")]
-    sphere: Option<Vec<String>>
+    #[arg(long, value_names = ["pos", "r", "albedo"], num_args = 0.., action = clap::ArgAction::Append, help = "Render sphere")]
+    sphere: Option<Vec<String>>,
+
+    #[arg(long, value_names = ["pos", "pwr", "col"], num_args = 0.., action = clap::ArgAction::Append, help = "Light source")]
+    light: Option<Vec<String>>
 }
 
 
@@ -309,6 +312,40 @@ fn main() {
     if let Some(scene_json_filename) = cli.scene {
         let scene_json = std::fs::read_to_string(scene_json_filename).unwrap();
         scene = serde_json::from_str(scene_json.as_str()).unwrap();
+    }
+
+    if let Some(spheres) = cli.sphere {
+        let sphere = Renderer::Sphere {
+            pos: Vec3f(0.0, 0.0, 0.0),
+            r: 0.5,
+            mat: Material {
+                albedo: Vec3f(1.0, 1.0, 1.0)
+            }
+        };
+    
+        if spheres.is_empty() {
+            if let Some(scene) = &mut scene.renderer {
+                scene.push(sphere);
+            } else {
+                scene.renderer = Some(vec![sphere]);
+            }
+        }
+    }
+
+    if let Some(lights) = cli.light {
+        let light = Light {
+            pos: Vec3f(-0.5, -1.0, 0.5),
+            pwr: 0.5,
+            color: Vec3f(1.0, 1.0, 1.0)
+        };
+    
+        if lights.is_empty() {
+            if let Some(scene) = &mut scene.light {
+                scene.push(light);
+            } else {
+                scene.light = Some(vec![light]);
+            }
+        }
     }
 
     if cli.verbose {
