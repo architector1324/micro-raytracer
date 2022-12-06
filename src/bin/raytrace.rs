@@ -143,7 +143,7 @@ impl Default for Vec3f {
 impl Default for Camera {
     fn default() -> Self {
         Camera {
-            pos: Vec3f(0.0, 0.0, 0.0),
+            pos: Vec3f(0.0, -1.0, 0.0),
             dir: Vec3f(0.0, 1.0, 0.0),
             fov: 90.0
         }
