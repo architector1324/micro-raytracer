@@ -1,5 +1,6 @@
 use serde::{Serialize, Deserialize};
 use clap::{Parser};
+use rand::Rng;
 
 
 // cli
@@ -43,7 +44,8 @@ struct Vec3f (f32, f32, f32);
 struct Ray {
     orig: Vec3f,
     dir: Vec3f,
-    t: f32
+    t: f32,
+    pwr: f32
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -61,7 +63,9 @@ struct Frame {
 
 #[derive(Serialize, Deserialize, Debug)]
 struct Material {
-    albedo: Vec3f
+    albedo: Vec3f,
+    gloss: f32,
+    rough: f32
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -93,7 +97,10 @@ struct Scene {
     light: Option<Vec<Light>>
 }
 
-struct RayTracer;
+struct RayTracer {
+    bounce: usize,
+    rand: rand::prelude::ThreadRng
+}
 
 impl Vec3f {
     fn add(&self, a: &Vec3f) -> Vec3f {
@@ -137,8 +144,27 @@ impl Ray {
                 1.0 / tan_fov,
                 -(2.0 * (y + 0.5) / h - 1.0)
             ).norm(),
-            t: 20000.0
+            t: 20000.0,
+            pwr: 1.0
         }
+    }
+
+    fn reflect(&mut self, rt: &mut RayTracer, obj: &Renderer) {
+        let hit = self.orig.add(&self.dir.mul_s(self.t));
+        let norm = obj.normal(&hit);
+
+        self.orig = obj.pos.clone();
+        self.dir = self.dir.sub(&norm.mul_s(2.0 * self.dir.dot(&norm)));
+
+        self.dir = self.dir.add(
+            &Vec3f(
+                rt.rand.gen::<f32>() * obj.mat.rough,
+                rt.rand.gen::<f32>() * obj.mat.rough, 
+                rt.rand.gen::<f32>() * obj.mat.rough
+            )
+        ).norm();
+
+        self.pwr *= obj.mat.gloss;
     }
 }
 
@@ -162,7 +188,7 @@ impl Default for Frame {
     fn default() -> Self {
         Frame {
             res: (800, 600),
-            cam: Default::default()
+            cam: Camera::default()
         }
     }
 }
@@ -210,7 +236,7 @@ impl Renderer {
 
     fn get_color(&self, ray: &Ray, scene: &Scene) -> Vec3f {
         if let Some(lights) = &scene.light {
-            let mut color: Vec3f = Default::default();
+            let mut color = Vec3f::default();
 
             for light in lights {
                 let hit = ray.orig.add(&ray.dir.mul_s(ray.t));
@@ -224,28 +250,42 @@ impl Renderer {
 
             return color;
         }
-        Default::default()
+        Vec3f::default()
     }
 }
 
 impl RayTracer {
-    fn find_closest_intersection<'a>(scene: &'a Scene, ray: &Ray) -> Option<(&'a Renderer, f32)> {
+    fn find_closest_intersection<'a>(&self, scene: &'a Scene, ray: &mut Ray) -> Option<&'a Renderer> {
         let hits = scene.renderer.as_deref()?.iter().map(|obj| (obj, obj.intersect(&ray))).filter(|p| p.1.is_some()).map(|p| (p.0, p.1.unwrap()));
-        hits.min_by(|max, p| max.1.total_cmp(&p.1))
+        let hit = hits.min_by(|max, p| max.1.total_cmp(&p.1));
+
+        if let Some((obj, t)) = hit {
+            ray.t = t;
+            return Some(obj)
+        }
+
+        None
     }
 
-    fn raytrace(scene: &Scene, frame: &Frame, out: &mut image::RgbImage) {
+    fn raytrace(&mut self, scene: &Scene, frame: &Frame, out: &mut image::RgbImage) {
         for (x, y, pixel) in out.enumerate_pixels_mut() {
             *pixel = image::Rgb([0, 0, 0]);
-    
+            
+            // raycast
             let mut ray = Ray::cast(x as f32, y as f32, frame);
-            let hit = RayTracer::find_closest_intersection(scene, &ray);
+            let mut col = Vec3f::default();
 
-            if let Some((obj, t)) = hit {
-                ray.t = t;
-                let col = obj.get_color(&ray, scene);
-                *pixel = image::Rgb([(255.0 * col.0) as u8, (255.0 * col.1) as u8, (255.0 * col.2) as u8]);
+            for _ in 0..self.bounce {
+                let hit = self.find_closest_intersection(scene, &mut ray);
+    
+                if let Some(obj) = hit {
+                    col = col.add(&obj.get_color(&ray, scene).mul_s(ray.pwr));
+                    ray.reflect(self, obj);
+                }
             }
+
+            // set pixel
+            *pixel = image::Rgb([(255.0 * col.0) as u8, (255.0 * col.1) as u8, (255.0 * col.2) as u8]);
         }
     }
 }
@@ -256,7 +296,7 @@ fn main() {
     let cli = CLI::parse();
 
     // get frame
-    let mut frame: Frame = Default::default();
+    let mut frame = Frame::default();
 
     if let Some(frame_json_filename) = cli.frame {
         let frame_json = std::fs::read_to_string(frame_json_filename).unwrap();
@@ -305,7 +345,7 @@ fn main() {
     }
 
     // get scene
-    let mut scene: Scene = Default::default();
+    let mut scene = Scene::default();
 
     if let Some(scene_json_filename) = cli.scene {
         let scene_json = std::fs::read_to_string(scene_json_filename).unwrap();
@@ -317,7 +357,9 @@ fn main() {
             kind: RendererKind::Sphere{r: 0.5},
             pos: Vec3f(0.0, 0.0, 0.0),
             mat: Material {
-                albedo: Vec3f(1.0, 1.0, 1.0)
+                albedo: Vec3f(1.0, 1.0, 1.0),
+                gloss: 0.0,
+                rough: 0.0
             }
         };
     
@@ -360,8 +402,14 @@ fn main() {
         println!("Rendering image: {}x{}", frame.res.0, frame.res.1);
     }
     
+    let mut rt = RayTracer{
+        bounce: 5,
+        rand: rand::thread_rng()
+    };
+
     let mut img = image::ImageBuffer::new(frame.res.0.into(), frame.res.1.into());
-    RayTracer::raytrace(&scene, &frame, &mut img);
+
+    rt.raytrace(&scene, &frame, &mut img);
 
     // save output
     match cli.output {
