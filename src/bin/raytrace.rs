@@ -37,7 +37,12 @@ struct CLI {
 
 
 // raytracer
-#[derive(Serialize, Deserialize, Debug, Clone)]
+struct RayTracer {
+    bounce: usize,
+    rand: rand::prelude::ThreadRng
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 struct Vec3f (f32, f32, f32);
 
 #[derive(Debug)]
@@ -97,35 +102,59 @@ struct Scene {
     light: Option<Vec<Light>>
 }
 
-struct RayTracer {
-    bounce: usize,
-    rand: rand::prelude::ThreadRng
+impl Vec3f {
+    fn mag(self) -> f32 {
+        (self.0.powi(2) + self.1.powi(2) + self.2.powi(2)).sqrt()
+    }
+
+    fn norm(self) -> Vec3f {
+        self * self.mag().recip()
+    }
 }
 
-impl Vec3f {
-    fn add(&self, a: &Vec3f) -> Vec3f {
-        Vec3f(self.0 + a.0, self.1 + a.1, self.2 + a.2)
-    }
+impl std::ops::Add for Vec3f {
+    type Output = Vec3f;
 
-    fn sub(&self, a: &Vec3f) -> Vec3f {
-        Vec3f(self.0 - a.0, self.1 - a.1, self.2 - a.2)
+    fn add(self, rhs: Self) -> Self::Output {
+        Vec3f(self.0 + rhs.0, self.1 + rhs.1, self.2 + rhs.2)
     }
+}
 
-    fn mul_s(&self, a: f32) -> Vec3f {
-        Vec3f(self.0 * a, self.1 * a, self.2 * a)
+impl std::ops::Sub for Vec3f {
+    type Output = Vec3f;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Vec3f(self.0 - rhs.0, self.1 - rhs.1, self.2 - rhs.2)
     }
+}
 
-    fn dot(&self, a: &Vec3f) -> f32 {
-        self.0 * a.0 + self.1 * a.1 + self.2 * a.2
+impl std::ops::Mul for Vec3f {
+    type Output = f32;
+    fn mul(self, rhs: Self) -> Self::Output {
+        self.0 * rhs.0 + self.1 * rhs.1 + self.2 * rhs.2
     }
+}
 
-    fn mag(&self) -> f32 {
-        (self.0.powf(2.0) + self.1.powf(2.0) + self.2.powf(2.0)).sqrt()
+impl std::ops::Mul<f32> for Vec3f {
+    type Output = Vec3f;
+    fn mul(self, rhs: f32) -> Self::Output {
+        Vec3f(self.0 * rhs, self.1 * rhs, self.2 * rhs)
     }
+}
 
-    fn norm(&self) -> Vec3f {
-        let mag = 1.0 / self.mag();
-        self.mul_s(mag)
+impl std::ops::AddAssign for Vec3f {
+    fn add_assign(&mut self, rhs: Self) {
+        self.0 += rhs.0;
+        self.1 += rhs.1;
+        self.2 += rhs.2;
+    }
+}
+
+impl std::ops::SubAssign for Vec3f {
+    fn sub_assign(&mut self, rhs: Self) {
+        self.0 -= rhs.0;
+        self.1 -= rhs.1;
+        self.2 -= rhs.2;
     }
 }
 
@@ -141,7 +170,7 @@ impl Ray {
             orig: frame.cam.pos.clone(),
             dir: Vec3f(
                 aspect * (2.0 * (x + 0.5) / w - 1.0),
-                1.0 / tan_fov,
+                tan_fov.recip(),
                 -(2.0 * (y + 0.5) / h - 1.0)
             ).norm(),
             t: 20000.0,
@@ -150,20 +179,19 @@ impl Ray {
     }
 
     fn reflect(&mut self, rt: &mut RayTracer, obj: &Renderer) {
-        let hit = self.orig.add(&self.dir.mul_s(self.t));
-        let norm = obj.normal(&hit);
+        let hit = self.orig + self.dir * self.t;
+        let norm = obj.normal(hit);
 
         self.orig = obj.pos.clone();
-        self.dir = self.dir.sub(&norm.mul_s(2.0 * self.dir.dot(&norm)));
+        self.dir -= norm * (2.0 * (self.dir * norm));
 
-        self.dir = self.dir.add(
-            &Vec3f(
-                rt.rand.gen::<f32>() * obj.mat.rough,
-                rt.rand.gen::<f32>() * obj.mat.rough, 
-                rt.rand.gen::<f32>() * obj.mat.rough
-            )
-        ).norm();
+        let rough = Vec3f(
+            rt.rand.gen::<f32>() * obj.mat.rough,
+            rt.rand.gen::<f32>() * obj.mat.rough, 
+            rt.rand.gen::<f32>() * obj.mat.rough
+        );
 
+        self.dir = (self.dir + rough).norm();
         self.pwr *= obj.mat.gloss;
     }
 }
@@ -206,13 +234,13 @@ impl Renderer {
     fn intersect(&self, ray: &Ray) -> Option<f32> {
         match self.kind {
             RendererKind::Sphere{r} => {
-                let o = ray.orig.sub(&self.pos);
+                let o = ray.orig - self.pos;
 
-                let a = ray.dir.dot(&ray.dir);
-                let b = 2.0 * o.dot(&ray.dir);
-                let c = o.dot(&o) - r.powf(2.0);
+                let a = ray.dir * ray.dir;
+                let b = 2.0 * (o * ray.dir);
+                let c = o * o - r.powi(2);
 
-                let disc = b.powf(2.0) - 4.0 * a * c;
+                let disc = b.powi(2) - 4.0 * a * c;
 
                 if disc < 0.0 {
                     return None
@@ -230,8 +258,8 @@ impl Renderer {
         }
     }
 
-    fn normal(&self, hit: &Vec3f) -> Vec3f {
-        self.pos.sub(hit).norm()
+    fn normal(&self, hit: Vec3f) -> Vec3f {
+        (self.pos - hit).norm()
     }
 
     fn get_color(&self, ray: &Ray, scene: &Scene) -> Vec3f {
@@ -239,13 +267,13 @@ impl Renderer {
             let mut color = Vec3f::default();
 
             for light in lights {
-                let hit = ray.orig.add(&ray.dir.mul_s(ray.t));
-                let norm = self.normal(&hit);
-                let l = hit.sub(&light.pos);
+                let hit = ray.orig + ray.dir * ray.t;
+                let norm = self.normal(hit);
+                let l = hit - light.pos;
 
-                let power = light.pwr * norm.dot(&l.norm()).max(0.0) / (2.0 * l.mag().powf(2.0));
+                let power = light.pwr * (norm * l.norm()).max(0.0) / (2.0 * l.mag().powi(2));
 
-                color = color.add(&self.mat.albedo.add(&light.color).mul_s(power));
+                color += (self.mat.albedo + light.color) * power;
             }
 
             return color;
@@ -270,7 +298,7 @@ impl RayTracer {
     fn raytrace(&mut self, scene: &Scene, frame: &Frame, out: &mut image::RgbImage) {
         for (x, y, pixel) in out.enumerate_pixels_mut() {
             *pixel = image::Rgb([0, 0, 0]);
-            
+
             // raycast
             let mut ray = Ray::cast(x as f32, y as f32, frame);
             let mut col = Vec3f::default();
@@ -279,7 +307,7 @@ impl RayTracer {
                 let hit = self.find_closest_intersection(scene, &mut ray);
     
                 if let Some(obj) = hit {
-                    col = col.add(&obj.get_color(&ray, scene).mul_s(ray.pwr));
+                    col += obj.get_color(&ray, scene) * ray.pwr;
                     ray.reflect(self, obj);
                 }
             }
