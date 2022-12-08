@@ -6,8 +6,9 @@
             "r": 0.5,
             "mat": {
                 "albedo": [1, 0, 0],
-                "gloss": 1,
-                "rough": 0.1
+                "gloss": 0.5,
+                "rough": 0,
+                "metal": 0
             }
         },
         {
@@ -16,16 +17,29 @@
             "r": 0.1,
             "mat": {
                 "albedo": [0, 0, 1],
-                "gloss": 0,
-                "rough": 0
+                "gloss": 0.5,
+                "rough": 0.1,
+                "metal": 0
+            }
+        },
+        {
+            "type": "sphere",
+            "pos": [0.25, -0.5, -100.25],
+            "r": 100,
+            "mat": {
+                "albedo": [0, 1, 0],
+                "gloss": 1,
+                "rough": 0.1,
+                "metal": 0
             }
         }
     ],
     "light": [
         {
             "pos": [-0.5, -1, 0.5],
-            "pwr": 0.5,
+            "pwr": 1,
             "color": [1, 1, 1]
         }
-    ]
+    ],
+    "sky": [0.1, 0.1, 0.1]
 }

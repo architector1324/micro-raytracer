@@ -100,7 +100,8 @@ struct Light {
 #[derive(Serialize, Deserialize, Debug)]
 struct Scene {
     renderer: Option<Vec<Renderer>>,
-    light: Option<Vec<Light>>
+    light: Option<Vec<Light>>,
+    sky: Vec3f
 }
 
 impl Vec3f {
@@ -111,6 +112,11 @@ impl Vec3f {
     fn norm(self) -> Vec3f {
         self * self.mag().recip()
     }
+
+    fn hadamard(self, rhs: Vec3f) -> Vec3f {
+        Vec3f(self.0 * rhs.0, self.1 * rhs.1, self.2 * rhs.2)
+    }
+
 }
 
 impl std::ops::Add for Vec3f {
@@ -140,6 +146,14 @@ impl std::ops::Mul<f32> for Vec3f {
     type Output = Vec3f;
     fn mul(self, rhs: f32) -> Self::Output {
         Vec3f(self.0 * rhs, self.1 * rhs, self.2 * rhs)
+    }
+}
+
+impl std::ops::Div<f32> for Vec3f {
+    type Output = Vec3f;
+
+    fn div(self, rhs: f32) -> Self::Output {
+        self * rhs.recip()
     }
 }
 
@@ -226,7 +240,8 @@ impl Default for Scene {
     fn default() -> Self {
         Scene {
             renderer: None,
-            light: None
+            light: None,
+            sky: Vec3f::default()
         }
     }
 }
@@ -264,9 +279,9 @@ impl Renderer {
     }
 
     fn get_color(&self, ray: &Ray, scene: &Scene) -> Vec3f {
-        if let Some(lights) = &scene.light {
-            let mut color = Vec3f::default();
+        let mut color = Vec3f::default();
 
+        if let Some(lights) = &scene.light {
             for light in lights {
                 let hit = ray.orig + ray.dir * ray.t;
                 let norm = self.normal(hit);
@@ -274,12 +289,13 @@ impl Renderer {
 
                 let power = light.pwr * (norm * l.norm()).max(0.0) / (2.0 * l.mag().powi(2));
 
-                color += (self.mat.albedo + light.color) * power;
+                // color += self.mat.albedo.hadamard(light.color) * power;
+                color += (self.mat.albedo + light.color / 2.0) * power;
             }
 
-            return color;
+            // color += self.mat.albedo.hadamard(scene.sky) * scene.sky.mag().recip();
         }
-        Vec3f::default()
+        color
     }
 }
 
@@ -310,6 +326,9 @@ impl RayTracer {
                 if let Some(obj) = hit {
                     col += obj.get_color(&ray, scene) * ray.pwr;
                     ray.reflect(self, obj);
+                } else {
+                    col += scene.sky * ray.pwr;
+                    break;
                 }
             }
 
