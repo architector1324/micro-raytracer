@@ -70,7 +70,8 @@ struct Frame {
 struct Material {
     albedo: Vec3f,
     gloss: f32,
-    rough: f32
+    rough: f32,
+    metal: f32
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -180,18 +181,18 @@ impl Ray {
 
     fn reflect(&mut self, rt: &mut RayTracer, obj: &Renderer) {
         let hit = self.orig + self.dir * self.t;
-        let norm = obj.normal(hit);
+        let mut norm = obj.normal(hit);
 
-        self.orig = obj.pos.clone();
-        self.dir -= norm * (2.0 * (self.dir * norm));
+        self.orig = obj.pos;
 
         let rough = Vec3f(
-            rt.rand.gen::<f32>() * obj.mat.rough,
-            rt.rand.gen::<f32>() * obj.mat.rough, 
-            rt.rand.gen::<f32>() * obj.mat.rough
+            rt.rand.gen_range(-0.5..0.5) * obj.mat.rough,
+            rt.rand.gen_range(-0.5..0.5) * obj.mat.rough, 
+            rt.rand.gen_range(-0.5..0.5) * obj.mat.rough
         );
+        norm = (norm + rough).norm();
 
-        self.dir = (self.dir + rough).norm();
+        self.dir -= norm * (2.0 * (self.dir * norm));
         self.pwr *= obj.mat.gloss;
     }
 }
@@ -387,7 +388,8 @@ fn main() {
             mat: Material {
                 albedo: Vec3f(1.0, 1.0, 1.0),
                 gloss: 0.0,
-                rough: 0.0
+                rough: 0.0,
+                metal: 0.0
             }
         };
     
