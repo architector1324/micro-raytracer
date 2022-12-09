@@ -180,6 +180,14 @@ impl std::ops::Div<f32> for Vec3f {
     }
 }
 
+impl std::ops::Neg for Vec3f {
+    type Output = Vec3f;
+
+    fn neg(self) -> Self::Output {
+        Vec3f(-self.0, -self.1, -self.2)
+    }
+}
+
 impl std::ops::AddAssign for Vec3f {
     fn add_assign(&mut self, rhs: Self) {
         self.0 += rhs.0;
@@ -350,8 +358,9 @@ impl Renderer {
                 norm = (norm + rough).norm();
 
                 let diffuse = (norm * l.norm()).max(0.0);
+                let specular = self.mat.gloss * (-ray.dir.reflect(norm) * l.norm()).max(0.0).powi(32);
 
-                let power = light.pwr * diffuse / (2.0 * l.mag().powi(2));
+                let power = light.pwr * (diffuse + specular) / (2.0 * l.mag().powi(2));
                 color += (self.mat.albedo + light.color / 2.0) * power;
             }
         }
