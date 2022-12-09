@@ -26,6 +26,9 @@ struct CLI {
     #[arg(long, help="Ray bounce energy loss")]
     loss: Option<f32>,
 
+    #[arg(long, action, help="Save output on each sample")]
+    update: bool,
+
     #[arg(short, long, help = "Scene description json input filename", value_name = "FILE.json")]
     scene: Option<std::path::PathBuf>,
 
@@ -153,6 +156,10 @@ impl Vec3f {
             rand::thread_rng().gen_range(-0.5..0.5) * max_v
         )
     }
+
+    fn to_array(self) -> [f32; 3] {
+        [self.0, self.1, self.2]
+    }
 }
 
 impl std::ops::Add for Vec3f {
@@ -218,7 +225,7 @@ impl std::ops::SubAssign for Vec3f {
 }
 
 impl Ray {
-    fn reflect(&mut self, rt: &mut RayTracer, rnd_v: Vec3f, obj: &Renderer) {
+    fn reflect(&mut self, rt: &RayTracer, rnd_v: Vec3f, obj: &Renderer) {
         let hit = self.orig + self.dir * self.t;
         let mut norm = obj.normal(hit);
 
@@ -383,7 +390,7 @@ impl RayTracer {
         }
     }
 
-    fn raytrace_sample(&mut self, coord: Vec2f, scene: &Scene, frame: &Frame) -> Vec3f {
+    fn raytrace(&self, coord: Vec2f, scene: &Scene, frame: &Frame) -> Vec3f {
         let mut ray = RayTracer::cast(coord, frame);
         let mut col = Vec3f::default();
 
@@ -402,19 +409,6 @@ impl RayTracer {
         }
 
         col
-    }
-
-    fn raytrace(&mut self, scene: &Scene, frame: &Frame, out: &mut image::RgbImage) {
-        for (x, y, pixel) in out.enumerate_pixels_mut() {
-            *pixel = image::Rgb([0, 0, 0]);
-
-            // raycast
-            let samples = (0..self.sample).map(|_| self.raytrace_sample(Vec2f(x as f32, y as f32), scene, frame));
-            let col = samples.fold(Vec3f::default(), |acc, v| acc + v) / (self.sample as f32);
-
-            // set pixel
-            *pixel = image::Rgb([(255.0 * col.0) as u8, (255.0 * col.1) as u8, (255.0 * col.2) as u8]);
-        }
     }
 }
 
@@ -508,7 +502,7 @@ fn main() {
     }
 
     // setup raytacer
-    let mut rt = RayTracer{
+    let rt = RayTracer{
         bounce: cli.bounce.unwrap_or(8),
         sample: cli.sample.unwrap_or(16),
         loss: cli.loss.unwrap_or(0.75),
@@ -530,12 +524,18 @@ fn main() {
     }
 
     // raytrace
-    let mut img = image::ImageBuffer::new(frame.res.0.into(), frame.res.1.into());
-    rt.raytrace(&scene, &frame, &mut img);
+    let filename = cli.output.unwrap_or(std::path::PathBuf::from("out.png"));
+    let mut img: image::RgbImage = image::ImageBuffer::new(frame.res.0.into(), frame.res.1.into());
 
-    // save output
-    match cli.output {
-        Some(filename) => img.save(filename).unwrap(),
-        None => img.save("out.png").unwrap()
+    for (x, y, px) in img.enumerate_pixels_mut() {
+        // raycast
+        let samples = (0..rt.sample).map(|_| rt.raytrace(Vec2f(x as f32, y as f32), &scene, &frame));
+        let col = samples.fold(Vec3f::default(), |acc, v| acc + v) / (rt.sample as f32);
+
+        // set pixel
+        *px = image::Rgb(col.to_array().map(|v| (255.0 * v) as u8));
     }
+ 
+    // save output
+    img.save(filename).unwrap();
 }
