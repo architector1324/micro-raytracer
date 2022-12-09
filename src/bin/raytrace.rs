@@ -23,6 +23,9 @@ struct CLI {
     #[arg(long, help="Max path-tracing samples")]
     sample: Option<usize>,
 
+    #[arg(long, help="Ray bounce energy loss")]
+    loss: Option<f32>,
+
     #[arg(short, long, help = "Scene description json input filename", value_name = "FILE.json")]
     scene: Option<std::path::PathBuf>,
 
@@ -48,6 +51,7 @@ struct CLI {
 struct RayTracer {
     bounce: usize,
     sample: usize,
+    loss: f32,
 
     #[serde(skip_serializing, skip_deserializing)]
     rand: rand::prelude::ThreadRng
@@ -81,7 +85,6 @@ struct Frame {
 #[derive(Serialize, Deserialize, Debug)]
 struct Material {
     albedo: Vec3f,
-    gloss: f32,
     rough: f32,
     metal: f32
 }
@@ -263,7 +266,7 @@ impl Ray {
         norm = (norm + rough).norm();
 
         self.dir = self.dir.reflect(norm);
-        self.pwr *= obj.mat.gloss;
+        self.pwr *= 1.0 - rt.loss.min(1.0);
     }
 }
 
@@ -358,7 +361,7 @@ impl Renderer {
                 norm = (norm + rough).norm();
 
                 let diffuse = (norm * l.norm()).max(0.0);
-                let specular = self.mat.gloss * (-ray.dir.reflect(norm) * l.norm()).max(0.0).powi(32);
+                let specular = (-ray.dir.reflect(norm) * l.norm()).max(0.0).powi(32);
 
                 let power = light.pwr * (diffuse + specular) / (2.0 * l.mag().powi(2));
                 color += (self.mat.albedo + light.color / 2.0) * power;
@@ -473,7 +476,6 @@ fn main() {
             pos: Vec3f(0.0, 0.0, 0.0),
             mat: Material {
                 albedo: Vec3f(1.0, 1.0, 1.0),
-                gloss: 0.0,
                 rough: 0.0,
                 metal: 0.0
             }
@@ -508,6 +510,7 @@ fn main() {
     let mut rt = RayTracer{
         bounce: cli.bounce.unwrap_or(8),
         sample: cli.sample.unwrap_or(16),
+        loss: cli.loss.unwrap_or(0.75),
         rand: rand::thread_rng()
     };
 
