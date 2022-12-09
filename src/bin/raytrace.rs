@@ -44,6 +44,7 @@ struct RayTracer {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 struct Vec3f (f32, f32, f32);
+type Mat3f = [f32; 9];
 
 #[derive(Debug)]
 struct Ray {
@@ -102,6 +103,18 @@ struct Scene {
     renderer: Option<Vec<Renderer>>,
     light: Option<Vec<Light>>,
     sky: Vec3f
+}
+
+impl std::ops::Mul<Vec3f> for Mat3f {
+    type Output = Vec3f;
+
+    fn mul(self, rhs: Vec3f) -> Self::Output {
+        Vec3f(
+            self[0] * rhs.0 + self[1] * rhs.1 + self[2] * rhs.2,
+            self[3] * rhs.0 + self[4] * rhs.1 + self[5] * rhs.2,
+            self[6] * rhs.0 + self[7] * rhs.1 + self[8] * rhs.2,
+        )
+    }
 }
 
 impl Vec3f {
@@ -176,13 +189,38 @@ impl Ray {
         let aspect = w / h;
         let tan_fov = (frame.cam.fov / 2.0).to_radians().tan();
 
+        // get direction
+        let mut dir = Vec3f(
+            aspect * (2.0 * (x + 0.5) / w - 1.0),
+            tan_fov.recip(),
+            -(2.0 * (y + 0.5) / h - 1.0)
+        ).norm();
+
+        let cam_dir = frame.cam.dir.norm();
+
+        // rotate direction
+        let rot_x: Mat3f = [
+            1.0, 0.0, 0.0,
+            0.0, cam_dir.1, -cam_dir.2,
+            0.0, cam_dir.2, cam_dir.1
+        ];
+
+        // let rot_y: Mat3f = [
+        //     cam_dir.0, 0.0, cam_dir.2,
+        //     0.0, 1.0, 0.0,
+        //     -cam_dir.2, 0.0, cam_dir.0
+        // ];
+
+        let rot_z: Mat3f = [
+            cam_dir.1, cam_dir.0, 0.0,
+            -cam_dir.0, cam_dir.1, 0.0,
+            0.0, 0.0, 1.0
+        ];
+
+        // cast
         Ray {
             orig: frame.cam.pos.clone(),
-            dir: Vec3f(
-                aspect * (2.0 * (x + 0.5) / w - 1.0),
-                tan_fov.recip(),
-                -(2.0 * (y + 0.5) / h - 1.0)
-            ).norm(),
+            dir: rot_x * (rot_z * dir), // rot_x * (rot_y * (rot_z * dir)),
             t: 20000.0,
             pwr: 1.0
         }
