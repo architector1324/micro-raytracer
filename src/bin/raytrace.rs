@@ -136,6 +136,10 @@ impl Vec3f {
     fn norm(self) -> Vec3f {
         self * self.mag().recip()
     }
+
+    fn reflect(self, n: Vec3f) -> Vec3f {
+        self - n * (2.0 * (self * n))
+    }
 }
 
 impl std::ops::Add for Vec3f {
@@ -250,7 +254,7 @@ impl Ray {
         );
         norm = (norm + rough).norm();
 
-        self.dir -= norm * (2.0 * (self.dir * norm));
+        self.dir = self.dir.reflect(norm);
         self.pwr *= obj.mat.gloss;
     }
 }
@@ -329,17 +333,25 @@ impl Renderer {
         (self.pos - hit).norm()
     }
 
-    fn get_color(&self, ray: &Ray, scene: &Scene) -> Vec3f {
+    fn get_color(&self, rt: &mut RayTracer, ray: &Ray, scene: &Scene) -> Vec3f {
         let mut color = Vec3f::default();
 
         if let Some(lights) = &scene.light {
             for light in lights {
                 let hit = ray.orig + ray.dir * ray.t;
-                let norm = self.normal(hit);
+                let mut norm = self.normal(hit);
                 let l = hit - light.pos;
 
-                let power = light.pwr * (norm * l.norm()).max(0.0) / (2.0 * l.mag().powi(2));
+                let rough = Vec3f(
+                    rt.rand.gen_range(-0.5..0.5) * self.mat.rough,
+                    rt.rand.gen_range(-0.5..0.5) * self.mat.rough, 
+                    rt.rand.gen_range(-0.5..0.5) * self.mat.rough
+                );
+                norm = (norm + rough).norm();
 
+                let diffuse = (norm * l.norm()).max(0.0);
+
+                let power = light.pwr * diffuse / (2.0 * l.mag().powi(2));
                 color += (self.mat.albedo + light.color / 2.0) * power;
             }
         }
@@ -368,7 +380,7 @@ impl RayTracer {
             let hit = self.find_closest_intersection(scene, &mut ray);
 
             if let Some(obj) = hit {
-                col += obj.get_color(&ray, scene) * ray.pwr;
+                col += obj.get_color(self, &ray, scene) * ray.pwr;
                 ray.reflect(self, obj);
             } else {
                 col += scene.sky * ray.pwr;
@@ -485,8 +497,8 @@ fn main() {
 
     // setup raytacer
     let mut rt = RayTracer{
-        bounce: cli.bounce.unwrap_or(5),
-        sample: cli.sample.unwrap_or(32),
+        bounce: cli.bounce.unwrap_or(8),
+        sample: cli.sample.unwrap_or(16),
         rand: rand::thread_rng()
     };
 
