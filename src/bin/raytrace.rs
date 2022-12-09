@@ -78,7 +78,7 @@ struct Material {
 #[serde(tag = "type", rename_all = "lowercase")]
 enum RendererKind {
     Sphere {r: f32},
-    Plane {}
+    Plane {n: Vec3f}
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -112,11 +112,6 @@ impl Vec3f {
     fn norm(self) -> Vec3f {
         self * self.mag().recip()
     }
-
-    fn hadamard(self, rhs: Vec3f) -> Vec3f {
-        Vec3f(self.0 * rhs.0, self.1 * rhs.1, self.2 * rhs.2)
-    }
-
 }
 
 impl std::ops::Add for Vec3f {
@@ -270,7 +265,14 @@ impl Renderer {
 
                 None
             },
-            RendererKind::Plane{} => todo!()
+            RendererKind::Plane{n} => {
+                let t = (ray.orig * n.norm() + self.pos.2) / (ray.dir * n.norm());
+
+                if t >= 0.0 {
+                    return Some(t);
+                }
+                None
+            }
         }
     }
 
@@ -289,11 +291,8 @@ impl Renderer {
 
                 let power = light.pwr * (norm * l.norm()).max(0.0) / (2.0 * l.mag().powi(2));
 
-                // color += self.mat.albedo.hadamard(light.color) * power;
                 color += (self.mat.albedo + light.color / 2.0) * power;
             }
-
-            // color += self.mat.albedo.hadamard(scene.sky) * scene.sky.mag().recip();
         }
         color
     }
