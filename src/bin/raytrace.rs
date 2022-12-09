@@ -1,6 +1,7 @@
 use serde::{Serialize, Deserialize};
 use clap::{Parser};
 use rand::Rng;
+use serde_json::json;
 
 
 // cli
@@ -15,6 +16,12 @@ struct CLI {
 
     #[arg(short, long, help = "Final image output filename", value_name = "FILE.EXT")]
     output: Option<std::path::PathBuf>,
+
+    #[arg(long, help="Max ray bounce")]
+    bounce: Option<usize>,
+
+    #[arg(long, help="Max path-tracing samples")]
+    sample: Option<usize>,
 
     #[arg(short, long, help = "Scene description json input filename", value_name = "FILE.json")]
     scene: Option<std::path::PathBuf>,
@@ -37,8 +44,12 @@ struct CLI {
 
 
 // raytracer
+#[derive(Serialize, Deserialize, Debug)]
 struct RayTracer {
     bounce: usize,
+    sample: usize,
+
+    #[serde(skip_serializing, skip_deserializing)]
     rand: rand::prelude::ThreadRng
 }
 
@@ -190,7 +201,7 @@ impl Ray {
         let tan_fov = (frame.cam.fov / 2.0).to_radians().tan();
 
         // get direction
-        let mut dir = Vec3f(
+        let dir = Vec3f(
             aspect * (2.0 * (x + 0.5) / w - 1.0),
             tan_fov.recip(),
             -(2.0 * (y + 0.5) / h - 1.0)
@@ -349,25 +360,32 @@ impl RayTracer {
         None
     }
 
+    fn raytrace_sample(&mut self, x: u32, y: u32, scene: &Scene, frame: &Frame) -> Vec3f {
+        let mut ray = Ray::cast(x as f32, y as f32, frame);
+        let mut col = Vec3f::default();
+
+        for _ in 0..self.bounce {
+            let hit = self.find_closest_intersection(scene, &mut ray);
+
+            if let Some(obj) = hit {
+                col += obj.get_color(&ray, scene) * ray.pwr;
+                ray.reflect(self, obj);
+            } else {
+                col += scene.sky * ray.pwr;
+                break;
+            }
+        }
+
+        col
+    }
+
     fn raytrace(&mut self, scene: &Scene, frame: &Frame, out: &mut image::RgbImage) {
         for (x, y, pixel) in out.enumerate_pixels_mut() {
             *pixel = image::Rgb([0, 0, 0]);
 
             // raycast
-            let mut ray = Ray::cast(x as f32, y as f32, frame);
-            let mut col = Vec3f::default();
-
-            for _ in 0..self.bounce {
-                let hit = self.find_closest_intersection(scene, &mut ray);
-    
-                if let Some(obj) = hit {
-                    col += obj.get_color(&ray, scene) * ray.pwr;
-                    ray.reflect(self, obj);
-                } else {
-                    col += scene.sky * ray.pwr;
-                    break;
-                }
-            }
+            let samples = (0..self.sample).map(|_| self.raytrace_sample(x, y, scene, frame));
+            let col = samples.fold(Vec3f::default(), |acc, v| acc + v) / (self.sample as f32);
 
             // set pixel
             *pixel = image::Rgb([(255.0 * col.0) as u8, (255.0 * col.1) as u8, (255.0 * col.2) as u8]);
@@ -420,15 +438,6 @@ fn main() {
         }
     }
 
-    if cli.verbose {
-        // println!("{:?}", frame);
-        if cli.pretty {
-            println!("Frame:\n{}\n", serde_json::to_string_pretty(&frame).unwrap());
-        } else {
-            println!("Frame:\n{}\n", serde_json::to_string(&frame).unwrap());
-        }
-    }
-
     // get scene
     let mut scene = Scene::default();
 
@@ -474,27 +483,30 @@ fn main() {
         }
     }
 
+    // setup raytacer
+    let mut rt = RayTracer{
+        bounce: cli.bounce.unwrap_or(5),
+        sample: cli.sample.unwrap_or(32),
+        rand: rand::thread_rng()
+    };
+
+    // verbose
+    let info_json = json!({
+        "scene": scene,
+        "frame": frame,
+        "rt": rt,
+    });
+
     if cli.verbose {
-        // println!("{:?}", scene);
         if cli.pretty {
-            println!("Scene:\n{}\n", serde_json::to_string_pretty(&scene).unwrap());
+            println!("{}", serde_json::to_string_pretty(&info_json).unwrap());
         } else {
-            println!("Scene:\n{}\n", serde_json::to_string(&scene).unwrap());
+            println!("{}", info_json.to_string());
         }
     }
 
     // raytrace
-    if cli.verbose {
-        println!("Rendering image: {}x{}", frame.res.0, frame.res.1);
-    }
-    
-    let mut rt = RayTracer{
-        bounce: 5,
-        rand: rand::thread_rng()
-    };
-
     let mut img = image::ImageBuffer::new(frame.res.0.into(), frame.res.1.into());
-
     rt.raytrace(&scene, &frame, &mut img);
 
     // save output

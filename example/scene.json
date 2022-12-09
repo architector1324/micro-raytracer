@@ -6,7 +6,7 @@
             "r": 0.5,
             "mat": {
                 "albedo": [1, 0, 0],
-                "gloss": 0,
+                "gloss": 0.5,
                 "rough": 0,
                 "metal": 0
             }
