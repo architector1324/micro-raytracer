@@ -143,6 +143,10 @@ impl Vec3f {
     fn reflect(self, n: Vec3f) -> Vec3f {
         self - n * (2.0 * (self * n))
     }
+
+    fn hadam(self, rhs: Vec3f) -> Vec3f {
+        Vec3f(self.0 * rhs.0, self.1 * rhs.1, self.2 * rhs.2)
+    }
 }
 
 impl std::ops::Add for Vec3f {
@@ -364,7 +368,7 @@ impl Renderer {
                 let specular = (-ray.dir.reflect(norm) * l.norm()).max(0.0).powi(32);
 
                 let power = light.pwr * (diffuse + specular) / (2.0 * l.mag().powi(2));
-                color += (self.mat.albedo + light.color / 2.0) * power;
+                color += (self.mat.albedo.hadam(light.color)) * power;
             }
         }
         color
