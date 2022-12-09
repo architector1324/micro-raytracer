@@ -52,11 +52,9 @@ struct RayTracer {
     bounce: usize,
     sample: usize,
     loss: f32,
-
-    #[serde(skip_serializing, skip_deserializing)]
-    rand: rand::prelude::ThreadRng
 }
 
+struct Vec2f (f32, f32);
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 struct Vec3f (f32, f32, f32);
 type Mat3f = [f32; 9];
@@ -147,6 +145,14 @@ impl Vec3f {
     fn hadam(self, rhs: Vec3f) -> Vec3f {
         Vec3f(self.0 * rhs.0, self.1 * rhs.1, self.2 * rhs.2)
     }
+
+    fn rand(max_v: f32) -> Vec3f {
+        Vec3f(
+            rand::thread_rng().gen_range(-0.5..0.5) * max_v,
+            rand::thread_rng().gen_range(-0.5..0.5) * max_v, 
+            rand::thread_rng().gen_range(-0.5..0.5) * max_v
+        )
+    }
 }
 
 impl std::ops::Add for Vec3f {
@@ -212,62 +218,12 @@ impl std::ops::SubAssign for Vec3f {
 }
 
 impl Ray {
-    fn cast(x: f32, y: f32, frame: &Frame) -> Ray {
-        let w = frame.res.0 as f32;
-        let h = frame.res.1 as f32;
-
-        let aspect = w / h;
-        let tan_fov = (frame.cam.fov / 2.0).to_radians().tan();
-
-        // get direction
-        let dir = Vec3f(
-            aspect * (2.0 * (x + 0.5) / w - 1.0),
-            tan_fov.recip(),
-            -(2.0 * (y + 0.5) / h - 1.0)
-        ).norm();
-
-        let cam_dir = frame.cam.dir.norm();
-
-        // rotate direction
-        let rot_x: Mat3f = [
-            1.0, 0.0, 0.0,
-            0.0, cam_dir.1, -cam_dir.2,
-            0.0, cam_dir.2, cam_dir.1
-        ];
-
-        // let rot_y: Mat3f = [
-        //     cam_dir.0, 0.0, cam_dir.2,
-        //     0.0, 1.0, 0.0,
-        //     -cam_dir.2, 0.0, cam_dir.0
-        // ];
-
-        let rot_z: Mat3f = [
-            cam_dir.1, cam_dir.0, 0.0,
-            -cam_dir.0, cam_dir.1, 0.0,
-            0.0, 0.0, 1.0
-        ];
-
-        // cast
-        Ray {
-            orig: frame.cam.pos.clone(),
-            dir: rot_x * (rot_z * dir), // rot_x * (rot_y * (rot_z * dir)),
-            t: 20000.0,
-            pwr: 1.0
-        }
-    }
-
-    fn reflect(&mut self, rt: &mut RayTracer, obj: &Renderer) {
+    fn reflect(&mut self, rt: &mut RayTracer, rnd_v: Vec3f, obj: &Renderer) {
         let hit = self.orig + self.dir * self.t;
         let mut norm = obj.normal(hit);
 
         self.orig = obj.pos;
-
-        let rough = Vec3f(
-            rt.rand.gen_range(-0.5..0.5) * obj.mat.rough,
-            rt.rand.gen_range(-0.5..0.5) * obj.mat.rough, 
-            rt.rand.gen_range(-0.5..0.5) * obj.mat.rough
-        );
-        norm = (norm + rough).norm();
+        norm = (norm + rnd_v).norm();
 
         self.dir = self.dir.reflect(norm);
         self.pwr *= 1.0 - rt.loss.min(1.0);
@@ -348,7 +304,7 @@ impl Renderer {
         (self.pos - hit).norm()
     }
 
-    fn get_color(&self, rt: &mut RayTracer, ray: &Ray, scene: &Scene) -> Vec3f {
+    fn get_color(&self, ray: &Ray, rnd_v: Vec3f, scene: &Scene) -> Vec3f {
         let mut color = Vec3f::default();
 
         if let Some(lights) = &scene.light {
@@ -357,12 +313,7 @@ impl Renderer {
                 let mut norm = self.normal(hit);
                 let l = hit - light.pos;
 
-                let rough = Vec3f(
-                    rt.rand.gen_range(-0.5..0.5) * self.mat.rough,
-                    rt.rand.gen_range(-0.5..0.5) * self.mat.rough, 
-                    rt.rand.gen_range(-0.5..0.5) * self.mat.rough
-                );
-                norm = (norm + rough).norm();
+                norm = (norm + rnd_v).norm();
 
                 let diffuse = (norm * l.norm()).max(0.0);
                 let specular = (-ray.dir.reflect(norm) * l.norm()).max(0.0).powi(32);
@@ -388,16 +339,62 @@ impl RayTracer {
         None
     }
 
-    fn raytrace_sample(&mut self, x: u32, y: u32, scene: &Scene, frame: &Frame) -> Vec3f {
-        let mut ray = Ray::cast(x as f32, y as f32, frame);
+    fn cast(coord: Vec2f, frame: &Frame) -> Ray {
+        let w = frame.res.0 as f32;
+        let h = frame.res.1 as f32;
+
+        let aspect = w / h;
+        let tan_fov = (frame.cam.fov / 2.0).to_radians().tan();
+
+        // get direction
+        let dir = Vec3f(
+            aspect * (2.0 * (coord.0 + 0.5) / w - 1.0),
+            tan_fov.recip(),
+            -(2.0 * (coord.1 + 0.5) / h - 1.0)
+        ).norm();
+
+        let cam_dir = frame.cam.dir.norm();
+
+        // rotate direction
+        let rot_x: Mat3f = [
+            1.0, 0.0, 0.0,
+            0.0, cam_dir.1, -cam_dir.2,
+            0.0, cam_dir.2, cam_dir.1
+        ];
+
+        // let rot_y: Mat3f = [
+        //     cam_dir.0, 0.0, cam_dir.2,
+        //     0.0, 1.0, 0.0,
+        //     -cam_dir.2, 0.0, cam_dir.0
+        // ];
+
+        let rot_z: Mat3f = [
+            cam_dir.1, cam_dir.0, 0.0,
+            -cam_dir.0, cam_dir.1, 0.0,
+            0.0, 0.0, 1.0
+        ];
+
+        // cast
+        Ray {
+            orig: frame.cam.pos.clone(),
+            dir: rot_x * (rot_z * dir), // rot_x * (rot_y * (rot_z * dir)),
+            t: 20000.0,
+            pwr: 1.0
+        }
+    }
+
+    fn raytrace_sample(&mut self, coord: Vec2f, scene: &Scene, frame: &Frame) -> Vec3f {
+        let mut ray = RayTracer::cast(coord, frame);
         let mut col = Vec3f::default();
 
         for _ in 0..self.bounce {
             let hit = self.find_closest_intersection(scene, &mut ray);
 
             if let Some(obj) = hit {
-                col += obj.get_color(self, &ray, scene) * ray.pwr;
-                ray.reflect(self, obj);
+                let rnd_v = Vec3f::rand(obj.mat.rough);
+
+                col += obj.get_color(&ray, rnd_v, scene) * ray.pwr;
+                ray.reflect(self, rnd_v, obj);
             } else {
                 col += scene.sky * ray.pwr;
                 break;
@@ -412,7 +409,7 @@ impl RayTracer {
             *pixel = image::Rgb([0, 0, 0]);
 
             // raycast
-            let samples = (0..self.sample).map(|_| self.raytrace_sample(x, y, scene, frame));
+            let samples = (0..self.sample).map(|_| self.raytrace_sample(Vec2f(x as f32, y as f32), scene, frame));
             let col = samples.fold(Vec3f::default(), |acc, v| acc + v) / (self.sample as f32);
 
             // set pixel
@@ -515,7 +512,6 @@ fn main() {
         bounce: cli.bounce.unwrap_or(8),
         sample: cli.sample.unwrap_or(16),
         loss: cli.loss.unwrap_or(0.75),
-        rand: rand::thread_rng()
     };
 
     // verbose
