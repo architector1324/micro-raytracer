@@ -57,6 +57,7 @@ struct RayTracer {
     loss: f32,
 }
 
+#[derive(Debug, Clone, Copy)]
 struct Vec2f (f32, f32);
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 struct Vec3f (f32, f32, f32);
@@ -229,7 +230,7 @@ impl Ray {
         let hit = self.orig + self.dir * self.t;
         let mut norm = obj.normal(hit);
 
-        self.orig = obj.pos;
+        self.orig = hit;
         norm = (norm + rnd_v).norm();
 
         self.dir = self.dir.reflect(norm);
@@ -297,9 +298,9 @@ impl Renderer {
                 None
             },
             RendererKind::Plane{n} => {
-                let t = (ray.orig * n.norm() + self.pos.2) / (ray.dir * n.norm());
+                let t = -(ray.orig * (-n.norm()) - self.pos * n.norm()) / ((ray.dir) * n.norm());
 
-                if t >= 0.0 {
+                if t > 0.0 {
                     return Some(t);
                 }
                 None
@@ -308,7 +309,10 @@ impl Renderer {
     }
 
     fn normal(&self, hit: Vec3f) -> Vec3f {
-        (self.pos - hit).norm()
+        match self.kind {
+            RendererKind::Sphere{r: _} => (self.pos - hit).norm(),
+            RendererKind::Plane{n} => -n.norm()
+        }
     }
 
     fn get_color(&self, ray: &Ray, rnd_v: Vec3f, scene: &Scene) -> Vec3f {
@@ -317,24 +321,41 @@ impl Renderer {
         if let Some(lights) = &scene.light {
             for light in lights {
                 let hit = ray.orig + ray.dir * ray.t;
-                let mut norm = self.normal(hit);
                 let l = hit - light.pos;
+
+                // check light intersection
+                let mut l_ray = Ray {
+                    orig: hit,
+                    dir: (-l).norm(),
+                    t: 0.0,
+                    pwr: 1.0
+                };
+
+                if let Some(obj) = RayTracer::find_closest_intersection(scene, &mut l_ray) {
+                    if obj as *const Renderer != self as *const Renderer {
+                        continue;
+                    }
+                }
+
+                // get color
+                let mut norm = self.normal(hit);
 
                 norm = (norm + rnd_v).norm();
 
                 let diffuse = (norm * l.norm()).max(0.0);
                 let specular = (-ray.dir.reflect(norm) * l.norm()).max(0.0).powi(32);
 
-                let power = light.pwr * (diffuse + specular) / (2.0 * l.mag().powi(2));
-                color += (self.mat.albedo.hadam(light.color)) * power;
+                let power = light.pwr / (2.0 * l.mag().powi(2));
+                color += (self.mat.albedo * (diffuse + specular)).hadam(light.color * power);
             }
         }
+
         color
     }
 }
 
 impl RayTracer {
-    fn find_closest_intersection<'a>(&self, scene: &'a Scene, ray: &mut Ray) -> Option<&'a Renderer> {
+    fn find_closest_intersection<'a>(scene: &'a Scene, ray: &mut Ray) -> Option<&'a Renderer> {
         let hits = scene.renderer.as_deref()?.iter().map(|obj| (obj, obj.intersect(&ray))).filter(|p| p.1.is_some()).map(|p| (p.0, p.1.unwrap()));
         let hit = hits.min_by(|max, p| max.1.total_cmp(&p.1));
 
@@ -383,7 +404,7 @@ impl RayTracer {
 
         // cast
         Ray {
-            orig: frame.cam.pos.clone(),
+            orig: frame.cam.pos,
             dir: rot_x * (rot_z * dir), // rot_x * (rot_y * (rot_z * dir)),
             t: 20000.0,
             pwr: 1.0
@@ -395,7 +416,7 @@ impl RayTracer {
         let mut col = Vec3f::default();
 
         for _ in 0..self.bounce {
-            let hit = self.find_closest_intersection(scene, &mut ray);
+            let hit = RayTracer::find_closest_intersection(scene, &mut ray);
 
             if let Some(obj) = hit {
                 let rnd_v = Vec3f::rand(obj.mat.rough);
