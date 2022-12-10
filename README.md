@@ -42,7 +42,9 @@ TBD...
             "mat": {
                 "albedo": [1, 1, 1],
                 "rough": 0.5,
-                "metal": 0
+                "metal": 0,
+                "glass": 0,
+                "opacity": 1
             }
         }
     ],
