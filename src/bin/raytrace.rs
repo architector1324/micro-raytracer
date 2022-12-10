@@ -88,7 +88,9 @@ struct Frame {
 struct Material {
     albedo: Vec3f,
     rough: f32,
-    metal: f32
+    metal: f32,
+    glass: f32,
+    opacity: f32
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -254,7 +256,17 @@ impl Ray {
     }
 
     fn refract(&mut self, rt:&RayTracer, rnd_v: Vec3f, obj: &Renderer) {
-        unimplemented!()
+        let hit = self.orig + self.dir * self.t;
+        let mut norm = obj.normal(hit);
+
+        self.orig = hit;
+        norm = (norm + rnd_v).norm();
+
+        let eta = 1.0 - obj.mat.glass;
+        let k = 1.0 - eta.powi(2) * (1.0 - (norm * self.dir).powi(2));
+
+        self.dir = self.dir * eta - norm * (eta * (norm * self.dir) + k.sqrt());
+        self.pwr *= 1.0 - rt.loss.min(1.0);
     }
 }
 
@@ -294,7 +306,7 @@ impl Default for Scene {
 }
 
 impl Renderer {
-    fn intersect(&self, ray: &Ray) -> Option<f32> {
+    fn intersect(&self, ray: &Ray) -> Option<(f32, f32)> {
         match self.kind {
             RendererKind::Sphere{r} => {
                 let o = ray.orig - self.pos;
@@ -309,10 +321,11 @@ impl Renderer {
                     return None
                 }
 
-                let t = (-b - disc.sqrt()) / (2.0 * a);
+                let t0 = (-b - disc.sqrt()) / (2.0 * a);
+                let t1 = (-b + disc.sqrt()) / (2.0 * a);
 
-                if t >= 0.0 {
-                    return Some(t);
+                if t0 >= 0.0 {
+                    return Some((t0, t1));
                 }
 
                 None
@@ -322,7 +335,7 @@ impl Renderer {
                 let t = -(ray.orig * (-n.norm()) + d) / (ray.dir * n.norm());
 
                 if t > 0.0 {
-                    return Some(t);
+                    return Some((t, t));
                 }
                 None
             }
@@ -352,7 +365,7 @@ impl Renderer {
                     pwr: 1.0
                 };
 
-                if let Some(obj) = RayTracer::find_closest_intersection(scene, &mut l_ray) {
+                if let Some((obj, _, _)) = RayTracer::find_closest_intersection(scene, &mut l_ray) {
                     if obj as *const Renderer != self as *const Renderer {
                         continue;
                     }
@@ -363,7 +376,7 @@ impl Renderer {
 
                 norm = (norm + rnd_v).norm();
 
-                let diffuse = (norm * l.norm()).max(0.0);
+                let diffuse = (norm * l.norm()).max(0.0) * (1.0 - self.mat.metal) * self.mat.opacity;
                 let specular = (-ray.dir * l.norm().reflect(norm)).max(0.0).powi(32);
 
                 let power = light.pwr / (2.0 * l.mag().powi(2));
@@ -376,16 +389,9 @@ impl Renderer {
 }
 
 impl RayTracer {
-    fn find_closest_intersection<'a>(scene: &'a Scene, ray: &mut Ray) -> Option<&'a Renderer> {
-        let hits = scene.renderer.as_deref()?.iter().map(|obj| (obj, obj.intersect(&ray))).filter(|p| p.1.is_some()).map(|p| (p.0, p.1.unwrap()));
-        let hit = hits.min_by(|max, p| max.1.total_cmp(&p.1));
-
-        if let Some((obj, t)) = hit {
-            ray.t = t;
-            return Some(obj)
-        }
-
-        None
+    fn find_closest_intersection<'a>(scene: &'a Scene, ray: &mut Ray) -> Option<(&'a Renderer, f32, f32)> {
+        let hits = scene.renderer.as_deref()?.iter().map(|obj| (obj, obj.intersect(&ray))).filter(|p| p.1.is_some()).map(|p| (p.0, p.1.unwrap().0, p.1.unwrap().1));
+        hits.min_by(|max, p| max.1.total_cmp(&p.1))
     }
 
     fn cast(coord: Vec2f, frame: &Frame) -> Ray {
@@ -439,14 +445,24 @@ impl RayTracer {
         for _ in 0..self.bounce {
             let hit = RayTracer::find_closest_intersection(scene, &mut ray);
 
-            if let Some(obj) = hit {
+            if let Some((obj, t0, t1)) = hit {
                 let rnd_v = Vec3f::rand(obj.mat.rough);
 
-                if obj.mat.metal == 0.0 {
-                    col += obj.get_color(&ray, rnd_v, scene) * ray.pwr;
+                if obj.mat.opacity == 1.0 {
+                    ray.t = t0;
+                } else {
+                    ray.t = t1;
                 }
 
-                ray.reflect(self, rnd_v, obj);
+                col += obj.get_color(&ray, rnd_v, scene) * ray.pwr;
+
+                if obj.mat.opacity == 1.0 {
+                    ray.reflect(self, rnd_v, obj);
+                } else {
+                    let tmp = Ray{orig: ray.orig, dir:ray.dir, pwr: ray.pwr, t:t0};
+                    col += obj.get_color(&tmp, rnd_v, scene) * ray.pwr;
+                    ray.refract(self, rnd_v, obj);
+                }
             } else {
                 col += scene.sky * ray.pwr;
                 break;
@@ -517,7 +533,9 @@ fn main() {
             mat: Material {
                 albedo: Vec3f(1.0, 1.0, 1.0),
                 rough: 0.0,
-                metal: 0.0
+                metal: 0.0,
+                glass: 0.0,
+                opacity: 0.0
             }
         };
     
