@@ -171,6 +171,22 @@ impl std::ops::Add for Vec3f {
     }
 }
 
+impl std::ops::Add<f32> for Vec3f {
+    type Output = Vec3f;
+
+    fn add(self, rhs: f32) -> Self::Output {
+        Vec3f(self.0 + rhs, self.1 + rhs, self.2 + rhs)
+    }
+}
+
+impl std::ops::Sub<f32> for Vec3f {
+    type Output = Vec3f;
+
+    fn sub(self, rhs: f32) -> Self::Output {
+        Vec3f(self.0 - rhs, self.1 - rhs, self.2 - rhs)
+    }
+}
+
 impl std::ops::Sub for Vec3f {
     type Output = Vec3f;
 
@@ -236,6 +252,10 @@ impl Ray {
         self.dir = self.dir.reflect(norm);
         self.pwr *= 1.0 - rt.loss.min(1.0);
     }
+
+    fn refract(&mut self, rt:&RayTracer, rnd_v: Vec3f, obj: &Renderer) {
+        unimplemented!()
+    }
 }
 
 impl Default for Vec3f {
@@ -298,7 +318,8 @@ impl Renderer {
                 None
             },
             RendererKind::Plane{n} => {
-                let t = -(ray.orig * (-n.norm()) - self.pos * n.norm()) / ((ray.dir) * n.norm());
+                let d = -n.norm() * self.pos;
+                let t = -(ray.orig * (-n.norm()) + d) / (ray.dir * n.norm());
 
                 if t > 0.0 {
                     return Some(t);
@@ -337,16 +358,16 @@ impl Renderer {
                     }
                 }
 
-                // get color
+                // get color (simplified phong model)
                 let mut norm = self.normal(hit);
 
                 norm = (norm + rnd_v).norm();
 
                 let diffuse = (norm * l.norm()).max(0.0);
-                let specular = (-ray.dir.reflect(norm) * l.norm()).max(0.0).powi(32);
+                let specular = (-ray.dir * l.norm().reflect(norm)).max(0.0).powi(32);
 
                 let power = light.pwr / (2.0 * l.mag().powi(2));
-                color += (self.mat.albedo * (diffuse + specular)).hadam(light.color * power);
+                color += ((self.mat.albedo * (diffuse)).hadam(light.color) + specular) * power;
             }
         }
 
@@ -421,7 +442,10 @@ impl RayTracer {
             if let Some(obj) = hit {
                 let rnd_v = Vec3f::rand(obj.mat.rough);
 
-                col += obj.get_color(&ray, rnd_v, scene) * ray.pwr;
+                if obj.mat.metal == 0.0 {
+                    col += obj.get_color(&ray, rnd_v, scene) * ray.pwr;
+                }
+
                 ray.reflect(self, rnd_v, obj);
             } else {
                 col += scene.sky * ray.pwr;
@@ -526,7 +550,7 @@ fn main() {
     let rt = RayTracer{
         bounce: cli.bounce.unwrap_or(8),
         sample: cli.sample.unwrap_or(16),
-        loss: cli.loss.unwrap_or(0.75),
+        loss: cli.loss.unwrap_or(0.25),
     };
 
     // verbose
