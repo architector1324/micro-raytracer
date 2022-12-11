@@ -44,7 +44,8 @@ TBD...
                 "rough": 0.5,
                 "metal": 0,
                 "glass": 0,
-                "opacity": 1
+                "opacity": 1,
+                "emit": false
             }
         }
     ],
