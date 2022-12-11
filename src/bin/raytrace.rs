@@ -422,7 +422,7 @@ impl RayTracer {
     fn pathtrace<'a>(&self, scene: &'a Scene, ray: &mut Ray) -> (Vec3f, Option<(&'a Renderer, f32, f32)>) {
         // check bounce
         if ray.bounce > self.bounce {
-            return (Vec3f::default(), None)
+            return (scene.sky, None)
         }
 
         // intersect
@@ -450,10 +450,10 @@ impl RayTracer {
         if let Some(lights) = scene.light.as_ref() {
             for light in lights {
                 let l = light.pos - hit_p;
-        
+
                 if let None = RayTracer::find_closest_intersection(scene, &Ray{orig: hit_p + l.norm() * 0.001, dir: l.norm(), pwr:0.0, t:0.0, bounce:0}) {
                     let diff = (l.norm() * n).max(0.0);
-                    let spec = (ray.dir * l.norm().reflect(n)).max(0.0).powi(32);
+                    let spec = (ray.dir * l.norm().reflect(n)).max(0.0).powi(32) * (1.0 - hit_obj.mat.rough);
     
                     // l_col += ((o_col * diff).hadam(light.color) + spec) * light.pwr / (l.mag().powi(2));
                     l_col += ((o_col * diff).hadam(light.color) + spec) * light.pwr;
@@ -471,17 +471,8 @@ impl RayTracer {
             r_ray = r_tmp.refract(self, hit_obj);
         }
 
-        let mut d_col = Vec3f::default();
-
         let path = self.pathtrace(scene, &mut r_ray);
-
-        if let Some((_, t0, _)) = path.1 {
-            let hit_p2 = r_ray.orig + r_ray.dir + t0;
-            let p = hit_p2 - hit_p;
-
-            // d_col = (path.0 + o_col * (p.norm() * n).max(0.0)) / (p.mag().powi(2));
-            d_col = path.0 + o_col * (p.norm() * n).max(0.0);
-        }
+        let d_col = (path.0 + hit_obj.mat.albedo.hadam(path.0)) / 2.0;
 
         // total light
         (l_col * ray.pwr + d_col * r_ray.pwr, hit)
@@ -557,7 +548,7 @@ fn main() {
                 rough: 0.0,
                 metal: 0.0,
                 glass: 0.0,
-                opacity: 0.0,
+                opacity: 1.0,
                 emit: false
             }
         };
@@ -591,7 +582,7 @@ fn main() {
     let rt = RayTracer{
         bounce: cli.bounce.unwrap_or(8),
         sample: cli.sample.unwrap_or(16),
-        loss: cli.loss.unwrap_or(0.25),
+        loss: cli.loss.unwrap_or(0.15),
     };
 
     // verbose
