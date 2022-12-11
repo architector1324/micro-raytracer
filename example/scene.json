@@ -48,7 +48,7 @@
                 "rough": 0,
                 "metal": 0,
                 "glass": 0.5,
-                "opacity": 0.1,
+                "opacity": 0,
                 "emit": false
             }
         },
@@ -69,7 +69,7 @@
     "light": [
         {
             "pos": [-0.5, -1, 0.5],
-            "pwr": 0.8,
+            "pwr": 1,
             "color": [1, 1, 1]
         }
     ],

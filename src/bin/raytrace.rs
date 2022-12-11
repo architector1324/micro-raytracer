@@ -76,7 +76,8 @@ struct Ray {
 struct Camera {
     pos: Vec3f,
     dir: Vec3f,
-    fov: f32
+    fov: f32,
+    gamma: f32
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -299,7 +300,8 @@ impl Default for Camera {
         Camera {
             pos: Vec3f(0.0, -1.0, 0.0),
             dir: Vec3f(0.0, 1.0, 0.0),
-            fov: 90.0
+            fov: 90.0,
+            gamma: 0.5
         }
     }
 }
@@ -609,8 +611,11 @@ fn main() {
         let samples = (0..rt.sample).map(|_| rt.raytrace(Vec2f(x as f32, y as f32), &scene, &frame));
         let col = samples.fold(Vec3f::default(), |acc, v| acc + v) / (rt.sample as f32);
 
+        // gamma correction
+        let final_col = col.to_array().map(|v| (v).powf(frame.cam.gamma));
+
         // set pixel
-        *px = image::Rgb(col.to_array().map(|v| (255.0 * v) as u8));
+        *px = image::Rgb(final_col.map(|v| (255.0 * v) as u8));
     }
  
     // save output
