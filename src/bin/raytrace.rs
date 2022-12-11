@@ -63,12 +63,13 @@ struct Vec2f (f32, f32);
 struct Vec3f (f32, f32, f32);
 type Mat3f = [f32; 9];
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Ray {
     orig: Vec3f,
     dir: Vec3f,
     t: f32,
-    pwr: f32
+    pwr: f32,
+    bounce: usize
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -90,7 +91,8 @@ struct Material {
     rough: f32,
     metal: f32,
     glass: f32,
-    opacity: f32
+    opacity: f32,
+    emit: bool
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -227,6 +229,14 @@ impl std::ops::Neg for Vec3f {
     }
 }
 
+impl std::ops::Div for Vec3f {
+    type Output = Vec3f;
+
+    fn div(self, rhs: Self) -> Self::Output {
+        Vec3f(self.0 / rhs.0, self.1 / rhs.1, self.2 / rhs.2)
+    }
+}
+
 impl std::ops::AddAssign for Vec3f {
     fn add_assign(&mut self, rhs: Self) {
         self.0 += rhs.0;
@@ -244,29 +254,37 @@ impl std::ops::SubAssign for Vec3f {
 }
 
 impl Ray {
-    fn reflect(&mut self, rt: &RayTracer, rnd_v: Vec3f, obj: &Renderer) {
+    fn reflect(&self, rt: &RayTracer, obj: &Renderer) -> Ray {
         let hit = self.orig + self.dir * self.t;
-        let mut norm = obj.normal(hit);
+        let norm = (obj.normal(hit) + Vec3f::rand(obj.mat.rough)).norm();
 
-        self.orig = hit;
-        norm = (norm + rnd_v).norm();
+        let dir = self.dir.reflect(norm);
 
-        self.dir = self.dir.reflect(norm);
-        self.pwr *= 1.0 - rt.loss.min(1.0);
+        Ray {
+            dir: dir,
+            orig: hit + dir * 0.001,
+            pwr: self.pwr * (1.0 - rt.loss.min(1.0)),
+            t: 0.0,
+            bounce: self.bounce + 1
+        }
     }
 
-    fn refract(&mut self, rt:&RayTracer, rnd_v: Vec3f, obj: &Renderer) {
+    fn refract(&self, rt:&RayTracer, obj: &Renderer) -> Ray {
         let hit = self.orig + self.dir * self.t;
-        let mut norm = obj.normal(hit);
-
-        self.orig = hit;
-        norm = (norm + rnd_v).norm();
+        let norm = (obj.normal(hit) + Vec3f::rand(obj.mat.rough)).norm();
 
         let eta = 1.0 - obj.mat.glass;
-        let k = 1.0 - eta.powi(2) * (1.0 - (norm * self.dir).powi(2));
+        let k = 1.0 - eta.powi(2) * (1.0 - (norm * (-self.dir)).powi(2));
 
-        self.dir = self.dir * eta - norm * (eta * (norm * self.dir) + k.sqrt());
-        self.pwr *= 1.0 - rt.loss.min(1.0);
+        let dir = (norm * (eta * (norm * (-self.dir)) + k.sqrt()) - (-self.dir) * eta).norm();
+
+        Ray {
+            dir: dir,
+            orig: hit + dir * 0.001,
+            pwr: self.pwr * (1.0 - rt.loss.min(1.0)),
+            t: 0.0,
+            bounce: self.bounce + 1
+        }
     }
 }
 
@@ -332,7 +350,7 @@ impl Renderer {
             },
             RendererKind::Plane{n} => {
                 let d = -n.norm() * self.pos;
-                let t = -(ray.orig * (-n.norm()) + d) / (ray.dir * n.norm());
+                let t = -(ray.orig * n.norm() + d) / (ray.dir * n.norm());
 
                 if t > 0.0 {
                     return Some((t, t));
@@ -344,52 +362,14 @@ impl Renderer {
 
     fn normal(&self, hit: Vec3f) -> Vec3f {
         match self.kind {
-            RendererKind::Sphere{r: _} => (self.pos - hit).norm(),
-            RendererKind::Plane{n} => -n.norm()
+            RendererKind::Sphere{r: _} => (hit - self.pos).norm(),
+            RendererKind::Plane{n} => n.norm()
         }
-    }
-
-    fn get_color(&self, ray: &Ray, rnd_v: Vec3f, scene: &Scene) -> Vec3f {
-        let mut color = Vec3f::default();
-
-        if let Some(lights) = &scene.light {
-            for light in lights {
-                let hit = ray.orig + ray.dir * ray.t;
-                let l = hit - light.pos;
-
-                // check light intersection
-                let mut l_ray = Ray {
-                    orig: hit,
-                    dir: (-l).norm(),
-                    t: 0.0,
-                    pwr: 1.0
-                };
-
-                if let Some((obj, _, _)) = RayTracer::find_closest_intersection(scene, &mut l_ray) {
-                    if obj as *const Renderer != self as *const Renderer {
-                        continue;
-                    }
-                }
-
-                // get color (simplified phong model)
-                let mut norm = self.normal(hit);
-
-                norm = (norm + rnd_v).norm();
-
-                let diffuse = (norm * l.norm()).max(0.0) * (1.0 - self.mat.metal) * self.mat.opacity;
-                let specular = (-ray.dir * l.norm().reflect(norm)).max(0.0).powi(32);
-
-                let power = light.pwr / (2.0 * l.mag().powi(2));
-                color += ((self.mat.albedo * (diffuse)).hadam(light.color) + specular) * power;
-            }
-        }
-
-        color
     }
 }
 
 impl RayTracer {
-    fn find_closest_intersection<'a>(scene: &'a Scene, ray: &mut Ray) -> Option<(&'a Renderer, f32, f32)> {
+    fn find_closest_intersection<'a>(scene: &'a Scene, ray: &Ray) -> Option<(&'a Renderer, f32, f32)> {
         let hits = scene.renderer.as_deref()?.iter().map(|obj| (obj, obj.intersect(&ray))).filter(|p| p.1.is_some()).map(|p| (p.0, p.1.unwrap().0, p.1.unwrap().1));
         hits.min_by(|max, p| max.1.total_cmp(&p.1))
     }
@@ -433,43 +413,82 @@ impl RayTracer {
         Ray {
             orig: frame.cam.pos,
             dir: rot_x * (rot_z * dir), // rot_x * (rot_y * (rot_z * dir)),
-            t: 20000.0,
-            pwr: 1.0
+            t: 0.0,
+            pwr: 1.0,
+            bounce: 0
         }
+    }
+
+    fn pathtrace<'a>(&self, scene: &'a Scene, ray: &mut Ray) -> (Vec3f, Option<(&'a Renderer, f32, f32)>) {
+        // check bounce
+        if ray.bounce > self.bounce {
+            return (Vec3f::default(), None)
+        }
+
+        // intersect
+        let hit = RayTracer::find_closest_intersection(scene, ray);
+        if let None = hit {
+            return (scene.sky, None)
+        }
+
+        ray.t = hit.unwrap().1;
+
+        let hit_obj = hit.unwrap().0;
+        let o_col = hit_obj.mat.albedo * hit_obj.mat.opacity * (1.0 - hit_obj.mat.metal);
+
+        // emit
+        if hit_obj.mat.emit {
+            return (hit_obj.mat.albedo, hit)
+        }
+
+        let hit_p = ray.orig + ray.dir * ray.t;
+        let n = hit_obj.normal(hit_p);
+
+        // direct light
+        let mut l_col = Vec3f::default();
+
+        if let Some(lights) = scene.light.as_ref() {
+            for light in lights {
+                let l = light.pos - hit_p;
+        
+                if let None = RayTracer::find_closest_intersection(scene, &Ray{orig: hit_p + l.norm() * 0.001, dir: l.norm(), pwr:0.0, t:0.0, bounce:0}) {
+                    let diff = (l.norm() * n).max(0.0);
+                    let spec = (ray.dir * l.reflect(n)).max(0.0).powi(32);
+    
+                    l_col += ((o_col * diff).hadam(light.color) + spec) * light.pwr;
+                }
+            }
+        }
+
+        // indirect light
+        let mut r_ray = ray.reflect(self, hit_obj);
+
+        if hit_obj.mat.opacity != 1.0 && rand::thread_rng().gen_bool(0.5) {
+            let mut r_tmp = ray.clone();
+            r_tmp.t = hit.unwrap().2;
+            r_ray = r_tmp.refract(self, hit_obj);
+        }
+
+        let mut d_col = Vec3f::default();
+
+        let path = self.pathtrace(scene, &mut r_ray);
+
+        if let Some((_, t0, _)) = path.1 {
+            let hit_p2 = r_ray.orig + r_ray.dir + t0;
+            let p = hit_p2 - hit_p;
+
+            d_col = path.0 + o_col * (p.norm() * n).max(0.0);
+        }
+
+        // total light
+        (l_col * ray.pwr + d_col * r_ray.pwr, hit)
     }
 
     fn raytrace(&self, coord: Vec2f, scene: &Scene, frame: &Frame) -> Vec3f {
         let mut ray = RayTracer::cast(coord, frame);
-        let mut col = Vec3f::default();
+        let path = self.pathtrace(scene, &mut ray);
 
-        for _ in 0..self.bounce {
-            let hit = RayTracer::find_closest_intersection(scene, &mut ray);
-
-            if let Some((obj, t0, t1)) = hit {
-                let rnd_v = Vec3f::rand(obj.mat.rough);
-
-                if obj.mat.opacity == 1.0 {
-                    ray.t = t0;
-                } else {
-                    ray.t = t1;
-                }
-
-                col += obj.get_color(&ray, rnd_v, scene) * ray.pwr;
-
-                if obj.mat.opacity == 1.0 {
-                    ray.reflect(self, rnd_v, obj);
-                } else {
-                    let tmp = Ray{orig: ray.orig, dir:ray.dir, pwr: ray.pwr, t:t0};
-                    col += obj.get_color(&tmp, rnd_v, scene) * ray.pwr;
-                    ray.refract(self, rnd_v, obj);
-                }
-            } else {
-                col += scene.sky * ray.pwr;
-                break;
-            }
-        }
-
-        col
+        path.0
     }
 }
 
@@ -535,7 +554,8 @@ fn main() {
                 rough: 0.0,
                 metal: 0.0,
                 glass: 0.0,
-                opacity: 0.0
+                opacity: 0.0,
+                emit: false
             }
         };
     
