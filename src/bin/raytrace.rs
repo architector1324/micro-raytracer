@@ -453,8 +453,9 @@ impl RayTracer {
         
                 if let None = RayTracer::find_closest_intersection(scene, &Ray{orig: hit_p + l.norm() * 0.001, dir: l.norm(), pwr:0.0, t:0.0, bounce:0}) {
                     let diff = (l.norm() * n).max(0.0);
-                    let spec = (ray.dir * l.reflect(n)).max(0.0).powi(32);
+                    let spec = (ray.dir * l.norm().reflect(n)).max(0.0).powi(32);
     
+                    // l_col += ((o_col * diff).hadam(light.color) + spec) * light.pwr / (l.mag().powi(2));
                     l_col += ((o_col * diff).hadam(light.color) + spec) * light.pwr;
                 }
             }
@@ -463,7 +464,8 @@ impl RayTracer {
         // indirect light
         let mut r_ray = ray.reflect(self, hit_obj);
 
-        if hit_obj.mat.opacity != 1.0 && rand::thread_rng().gen_bool(0.5) {
+        // 20% chance to reflect
+        if hit_obj.mat.opacity != 1.0 && rand::thread_rng().gen_bool(0.8) {
             let mut r_tmp = ray.clone();
             r_tmp.t = hit.unwrap().2;
             r_ray = r_tmp.refract(self, hit_obj);
@@ -477,6 +479,7 @@ impl RayTracer {
             let hit_p2 = r_ray.orig + r_ray.dir + t0;
             let p = hit_p2 - hit_p;
 
+            // d_col = (path.0 + o_col * (p.norm() * n).max(0.0)) / (p.mag().powi(2));
             d_col = path.0 + o_col * (p.norm() * n).max(0.0);
         }
 

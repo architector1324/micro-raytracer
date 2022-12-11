@@ -9,7 +9,7 @@
                 "rough": 0,
                 "metal": 0,
                 "glass": 0,
-                "opacity": 1.0,
+                "opacity": 1,
                 "emit": false
             }
         },
@@ -22,7 +22,7 @@
                 "rough": 0.5,
                 "metal": 0,
                 "glass": 0,
-                "opacity": 1.0,
+                "opacity": 1,
                 "emit": false
             }
         },
@@ -35,7 +35,7 @@
                 "rough": 0,
                 "metal": 1,
                 "glass": 0,
-                "opacity": 1.0,
+                "opacity": 1,
                 "emit": false
             }
         },
@@ -61,7 +61,7 @@
                 "rough": 0.5,
                 "metal": 0,
                 "glass": 0,
-                "opacity": 1.0,
+                "opacity": 1,
                 "emit": false
             }
         }
