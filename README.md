@@ -22,25 +22,40 @@ Tiny raytracing microservice.
 Usage: raytrace [OPTIONS]
 
 Options:
-  -v, --verbose                         Print full info in json
-      --pretty                          Print full info in json with prettifier
-  -d, --dry                             Dry run (useful with verbose)
-  -o, --output <FILE.EXT>               Final image output filename
-      --bounce <BOUNCE>                 Max ray bounce
-      --sample <SAMPLE>                 Max path-tracing samples
-      --gamma <GAMMA>                   Final image gamma correction
-      --exp <EXP>                       Final image camera exposure
-      --loss <LOSS>                     Ray bounce energy loss
-  -u, --update                          Save output on each sample
-  -w, --worker <WORKER>                 Parallel workers count
-  -s, --scene <FILE.json>               Scene description json input filename
-  -f, --frame <FILE.json>               Frame description json input filename
-      --res <w> <h>                     Frame output image resolution
-      --cam <pos> <dir> <fov>...        Frame camera
-      --sphere [<pos> <r> <albedo>...]  Render sphere
-      --light [<pos> <pwr> <col>...]    Light source
-  -h, --help                            Print help information
-  -V, --version                         Print version information
+  -v, --verbose
+          Print full info in json
+      --pretty
+          Print full info in json with prettifier
+  -d, --dry
+          Dry run (useful with verbose)
+  -o, --output <FILE.EXT>
+          Final image output filename
+      --bounce <BOUNCE>
+          Max ray bounce
+      --sample <SAMPLE>
+          Max path-tracing samples
+      --loss <LOSS>
+          Ray bounce energy loss
+  -u, --update
+          Save output on each sample
+  -w, --worker <WORKER>
+          Parallel workers count
+  -s, --scene <FILE.json>
+          Scene description json input filename
+  -f, --frame <FILE.json>
+          Frame description json input filename
+      --res <w> <h>
+          Frame output image resolution
+      --cam <pos <x y z>> <dir <x y z>> <fov> <gamma> <exp>...
+          Frame camera
+      --sphere [<pos <x y z>> <r> <albedo <r g b>>...]
+          Render sphere
+      --light [<pos <x y z>> <pwr> <col <r g b>>...]
+          Light source
+  -h, --help
+          Print help information
+  -V, --version
+          Print version information
 ```
 
 ### In-place in terminal

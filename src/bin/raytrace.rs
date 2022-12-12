@@ -26,12 +26,6 @@ struct CLI {
     #[arg(long, help="Max path-tracing samples")]
     sample: Option<usize>,
 
-    #[arg(long, help="Final image gamma correction")]
-    gamma: Option<f32>,
-
-    #[arg(long, help="Final image camera exposure")]
-    exp: Option<f32>,
-
     #[arg(long, help="Ray bounce energy loss")]
     loss: Option<f32>,
 
@@ -51,13 +45,13 @@ struct CLI {
     res: Option<Vec<u16>>,
 
     // scene builder
-    #[arg(long, value_names = ["pos", "dir", "fov"], num_args = 1..=10,  help = "Frame camera")]
+    #[arg(long, value_names = ["pos <x y z>", "dir <x y z>", "fov", "gamma", "exp"], num_args = 1..,  allow_negative_numbers = true, help = "Frame camera")]
     cam: Option<Vec<String>>,
 
-    #[arg(long, value_names = ["pos", "r", "albedo"], num_args = 0.., action = clap::ArgAction::Append, help = "Render sphere")]
+    #[arg(long, value_names = ["pos <x y z>", "r", "albedo <r g b>"], num_args = 0.., action = clap::ArgAction::Append, allow_negative_numbers = true,help = "Render sphere")]
     sphere: Option<Vec<String>>,
 
-    #[arg(long, value_names = ["pos", "pwr", "col"], num_args = 0.., action = clap::ArgAction::Append, help = "Light source")]
+    #[arg(long, value_names = ["pos <x y z>", "pwr", "col <r g b>"], num_args = 0.., action = clap::ArgAction::Append, allow_negative_numbers = true, help = "Light source")]
     light: Option<Vec<String>>
 }
 
@@ -75,6 +69,10 @@ struct Vec2f (f32, f32);
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 struct Vec3f (f32, f32, f32);
 type Mat3f = [f32; 9];
+
+trait FromArgs {
+    fn from_args(args: &Vec<String>) -> Self;
+}
 
 #[derive(Debug, Clone)]
 struct Ray {
@@ -405,6 +403,37 @@ impl Renderer {
     }
 }
 
+impl FromArgs for Camera {
+    fn from_args(args: &Vec<String>) -> Self {
+        let mut it = args.iter();
+        let mut cam = Camera::default();
+
+        while let Some(arg) = it.next() {
+            match arg.as_str() {
+                "pos:" => {
+                    cam.pos = Vec3f(
+                        it.next().unwrap().parse::<f32>().expect("should be <f32>!"),
+                        it.next().unwrap().parse::<f32>().expect("should be <f32>!"),
+                        it.next().unwrap().parse::<f32>().expect("should be <f32>!")
+                    )
+                },
+                "dir:" => {
+                    cam.dir = Vec3f(
+                        it.next().unwrap().parse::<f32>().expect("should be <f32>!"),
+                        it.next().unwrap().parse::<f32>().expect("should be <f32>!"),
+                        it.next().unwrap().parse::<f32>().expect("should be <f32>!")
+                    )
+                },
+                "fov:" => cam.fov = it.next().unwrap().parse::<f32>().expect("should be <f32>!"),
+                "gamma:" => cam.gamma = it.next().unwrap().parse::<f32>().expect("should be <f32>!"),
+                "exp:" => cam.exp = it.next().unwrap().parse::<f32>().expect("should be <f32>!"),
+                _ => ()
+            }
+        }
+        cam
+    }
+}
+
 impl RayTracer {
     fn find_closest_intersection<'a>(scene: &'a Scene, ray: &Ray) -> Option<(&'a Renderer, f32, f32)> {
         let hits = scene.renderer.as_deref()?.iter().map(|obj| (obj, obj.intersect(&ray))).filter(|p| p.1.is_some()).map(|p| (p.0, p.1.unwrap().0, p.1.unwrap().1));
@@ -543,37 +572,8 @@ fn main() {
         );
     }
 
-    if let Some(gamma) = cli.gamma {
-        frame.cam.gamma = gamma;
-    }
-
-    if let Some(exp) = cli.exp {
-        frame.cam.exp = exp;
-    }
-
     if let Some(cam_args) = cli.cam {
-        let mut it = cam_args.iter();
-
-        while let Some(arg) = it.next() {
-            match arg.as_str() {
-                "pos:" => {
-                    frame.cam.pos = Vec3f(
-                        it.next().unwrap().parse::<f32>().unwrap(),
-                        it.next().unwrap().parse::<f32>().unwrap(),
-                        it.next().unwrap().parse::<f32>().unwrap()
-                    )
-                },
-                "dir:" => {
-                    frame.cam.dir = Vec3f(
-                        it.next().unwrap().parse::<f32>().unwrap(),
-                        it.next().unwrap().parse::<f32>().unwrap(),
-                        it.next().unwrap().parse::<f32>().unwrap()
-                    )
-                },
-                "fov:" => frame.cam.fov = it.next().unwrap().parse::<f32>().unwrap(),
-                _ => ()
-            }
-        }
+        frame.cam = Camera::from_args(&cam_args);
     }
 
     // get scene
