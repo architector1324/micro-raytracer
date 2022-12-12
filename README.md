@@ -43,6 +43,8 @@ Options:
 
 ### In-place in terminal
 Let's render simple scene with sphere in terminal:
+
+/!\ CLI make scene is not ready yet!
 ```bash
 raytrace --sphere --light pos: -0.5 -1 0.5
 ```
@@ -57,6 +59,23 @@ raytrace --sphere --light pos: -0.5 -1 0.5 --res 1280 720 -o final.ppm
 
 ![image](doc/out1.png)
 
+Let's make something interesting (it will take some time):
+
+```bash
+raytrace --sphere r: 0.2 albedo: 1 0.92 0.6 emit \
+         --sphere r: 0.2 pos: 0.5 0 0 metal: 1 \
+         --sphere r: 0.2 pos: -0.25 -0.5 0 glass: 0.2 opacity: 0 \
+         --sphere r: 0.2 pos: -0.5 0 0 rough: 1 \
+         --sphere r: 100 pos: 0 0 -100.2 rough: 1 \
+         --sphere r: 100 pos: 0 0 101.2 rough: 1 \
+         --sphere r: 100 pos: 0 101 0 rough: 1 \
+         --sphere r: 100 pos: -101 0 0 albedo: 1 0 0 rough: 1 \
+         --sphere r: 100 pos: 101 0 0 albedo: 0 1 0 rough: 1 \
+         --cam pos: 0 -2 0.5 fov: 60 gamma 0.42 \
+         --sample 1024
+```
+
+![image](doc/out2.png)
 
 ### JSON frame and scene description
 1. First create `scene.json` file contains scene information:
