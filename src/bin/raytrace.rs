@@ -8,50 +8,50 @@ use serde_json::json;
 #[derive(Parser)]
 #[command(author, version, about = "Tiny raytracing microservice.", long_about = None)]
 struct CLI {
-    #[arg(short, long, action, help = "Print full info in json")]
+    #[arg(short, long, action, next_line_help = true, help = "Print full info in json")]
     verbose: bool,
 
-    #[arg(long, action, help = "Print full info in json with prettifier")]
+    #[arg(long, action, next_line_help = true, help = "Print full info in json with prettifier")]
     pretty: bool,
 
-    #[arg(short, long, action, help = "Dry run (useful with verbose)")]
+    #[arg(short, long, action, next_line_help = true, help = "Dry run (useful with verbose)")]
     dry: bool,
 
-    #[arg(short, long, help = "Final image output filename", value_name = "FILE.EXT")]
+    #[arg(short, long, next_line_help = true, help = "Final image output filename", value_name = "FILE.EXT")]
     output: Option<std::path::PathBuf>,
 
-    #[arg(long, help="Max ray bounce")]
+    #[arg(long, next_line_help = true, help="Max ray bounce")]
     bounce: Option<usize>,
 
-    #[arg(long, help="Max path-tracing samples")]
+    #[arg(long, next_line_help = true, help="Max path-tracing samples")]
     sample: Option<usize>,
 
-    #[arg(long, help="Ray bounce energy loss")]
+    #[arg(long, next_line_help = true, help="Ray bounce energy loss")]
     loss: Option<f32>,
 
-    #[arg(short, long, action, help="Save output on each sample")]
+    #[arg(short, long, action, next_line_help = true, help="Save output on each sample")]
     update: bool,
 
-    #[arg(short, long, help="Parallel workers count")]
+    #[arg(short, long, next_line_help = true, help="Parallel workers count")]
     worker: Option<usize>,
 
-    #[arg(short, long, help = "Scene description json input filename", value_name = "FILE.json")]
+    #[arg(short, long, next_line_help = true, help = "Scene description json input filename", value_name = "FILE.json")]
     scene: Option<std::path::PathBuf>,
 
-    #[arg(short, long, help = "Frame description json input filename", value_name = "FILE.json")]
+    #[arg(short, long, next_line_help = true, help = "Frame description json input filename", value_name = "FILE.json")]
     frame: Option<std::path::PathBuf>,
 
-    #[arg(long, value_names = ["w", "h"], help = "Frame output image resolution")]
+    #[arg(long, value_names = ["w", "h"], next_line_help = true, help = "Frame output image resolution")]
     res: Option<Vec<u16>>,
 
     // scene builder
-    #[arg(long, value_names = ["pos <x y z>", "dir <x y z>", "fov", "gamma", "exp"], num_args = 1..,  allow_negative_numbers = true, help = "Frame camera")]
+    #[arg(long, value_names = ["pos: <f32 f32 f32>", "dir: <f32 f32 f32>", "fov: <f32>", "gamma: <f32>", "exp: <f32>"], num_args = 1..,  allow_negative_numbers = true, next_line_help = true, help = "Add camera to the scene")]
     cam: Option<Vec<String>>,
 
-    #[arg(long, value_names = ["pos <x y z>", "r", "albedo <r g b>"], num_args = 0.., action = clap::ArgAction::Append, allow_negative_numbers = true,help = "Render sphere")]
-    sphere: Option<Vec<String>>,
+    #[arg(long, value_names = ["<type: sphere|plane>", "param: <sphere: r: <f32>>|<plane: n: <f32 f32 f32>>", "pos: <f32 f32 f32>" , "albedo: <f32 f32 f32>", "rough: <f32>", "metal: <f32>", "glass: <f32>", "opacity: <f32>", "emit"], num_args = 0.., action = clap::ArgAction::Append, allow_negative_numbers = true, next_line_help = true, help = "Add renderer to the scene")]
+    obj: Option<Vec<String>>,
 
-    #[arg(long, value_names = ["pos <x y z>", "pwr", "col <r g b>"], num_args = 0.., action = clap::ArgAction::Append, allow_negative_numbers = true, help = "Light source")]
+    #[arg(long, value_names = ["<type: pt> pos: <f32 f32 f32>", "pwr: <f32>", "col: <f32 f32 f32>"], num_args = 0.., action = clap::ArgAction::Append, allow_negative_numbers = true, next_line_help = true, help = "Add light source to the scene")]
     light: Option<Vec<String>>
 }
 
@@ -358,6 +358,16 @@ impl Default for Material {
     }
 }
 
+impl Default for Light {
+    fn default() -> Self {
+        Light {
+            pos: Vec3f::default(),
+            pwr: 0.5,
+            color: Vec3f(1.0, 1.0, 1.0)
+        }
+    }
+}
+
 impl Renderer {
     fn intersect(&self, ray: &Ray) -> Option<(f32, f32)> {
         match self.kind {
@@ -408,8 +418,8 @@ impl FromArgs for Camera {
         let mut it = args.iter();
         let mut cam = Camera::default();
 
-        while let Some(arg) = it.next() {
-            match arg.as_str() {
+        while let Some(param) = it.next() {
+            match param.as_str() {
                 "pos:" => {
                     cam.pos = Vec3f(
                         it.next().unwrap().parse::<f32>().expect("should be <f32>!"),
@@ -427,10 +437,121 @@ impl FromArgs for Camera {
                 "fov:" => cam.fov = it.next().unwrap().parse::<f32>().expect("should be <f32>!"),
                 "gamma:" => cam.gamma = it.next().unwrap().parse::<f32>().expect("should be <f32>!"),
                 "exp:" => cam.exp = it.next().unwrap().parse::<f32>().expect("should be <f32>!"),
-                _ => ()
+                _ => panic!("`{}` param for `cam` is unxpected!", param)
             }
         }
         cam
+    }
+}
+
+impl FromArgs for Light {
+    fn from_args(args: &Vec<String>) -> Self {
+        let t = &args[0];
+
+        if t.as_str() != "pt" {
+            panic!("`{}` type is unxpected!", t);
+        }
+
+        let mut light = Light::default();
+        let mut it = args.iter().skip(1);
+
+        while let Some(param) = it.next() {
+            match param.as_str() {
+                "pos:" => {
+                    light.pos = Vec3f(
+                        it.next().unwrap().parse::<f32>().expect("should be <f32>!"),
+                        it.next().unwrap().parse::<f32>().expect("should be <f32>!"),
+                        it.next().unwrap().parse::<f32>().expect("should be <f32>!")
+                    )
+                },
+                "col:" => {
+                    light.color = Vec3f(
+                        it.next().unwrap().parse::<f32>().expect("should be <f32>!"),
+                        it.next().unwrap().parse::<f32>().expect("should be <f32>!"),
+                        it.next().unwrap().parse::<f32>().expect("should be <f32>!")
+                    )
+                },
+                "pwr:" => light.pwr = it.next().unwrap().parse::<f32>().expect("should be <f32>!"),
+                _ => panic!("`{}` param for `light` is unxpected!", param)
+            }
+        }
+
+        light
+    }
+}
+
+impl FromArgs for Renderer {
+    fn from_args (args: &Vec<String>) -> Self {
+        let t = &args[0];
+        let mut it = args.iter().skip(1);
+
+        // parse object
+        let mut obj = Renderer {
+            kind: match t.as_str() {
+                "sphere" => RendererKind::Sphere {r: 0.5},
+                "plane" => RendererKind::Plane {n: Vec3f(0.0, 0.0, 1.0)},
+                _ => panic!("`{}` type is unxpected!", t)
+            },
+            pos: Vec3f::default(),
+            mat: Material::default()
+        };
+
+        // modify params
+        while let Some(param) = it.next() {
+            // type params
+            let is_type_param = match obj.kind {
+                RendererKind::Sphere {ref mut r} => {
+                    if param.as_str() == "r:" {
+                        *r = it.next().unwrap().parse::<f32>().expect("should be <f32>!");
+                        true
+                    } else {
+                        false
+                    }
+                },
+                RendererKind::Plane{ref mut n} => {
+                    if param.as_str() == "n:" {
+                        *n = Vec3f(
+                            it.next().unwrap().parse::<f32>().expect("should be <f32>!"),
+                            it.next().unwrap().parse::<f32>().expect("should be <f32>!"),
+                            it.next().unwrap().parse::<f32>().expect("should be <f32>!")
+                        );
+
+                        true
+                    } else {
+                        false
+                    }
+                }
+            };
+
+            // common params
+            match param.as_str() {
+                "pos:" => {
+                    obj.pos = Vec3f(
+                        it.next().unwrap().parse::<f32>().expect("should be <f32>!"),
+                        it.next().unwrap().parse::<f32>().expect("should be <f32>!"),
+                        it.next().unwrap().parse::<f32>().expect("should be <f32>!")
+                    )
+                },
+                "albedo:" => {
+                    obj.mat.albedo = Vec3f(
+                        it.next().unwrap().parse::<f32>().expect("should be <f32>!"),
+                        it.next().unwrap().parse::<f32>().expect("should be <f32>!"),
+                        it.next().unwrap().parse::<f32>().expect("should be <f32>!")
+                    )
+                },
+                "rough:" => obj.mat.rough = it.next().unwrap().parse::<f32>().expect("should be <f32>!"),
+                "metal:" => obj.mat.metal = it.next().unwrap().parse::<f32>().expect("should be <f32>!"),
+                "glass:" => obj.mat.glass = it.next().unwrap().parse::<f32>().expect("should be <f32>!"),
+                "opacity:" => obj.mat.opacity = it.next().unwrap().parse::<f32>().expect("should be <f32>!"),
+                "emit" => obj.mat.emit = true,
+                _ => {
+                    if !is_type_param {
+                        panic!("`{}` param for `{}` is unxpected!", param, t);
+                    } 
+                }
+            };
+        }
+        obj
     }
 }
 
@@ -584,35 +705,29 @@ fn main() {
         scene = serde_json::from_str(scene_json.as_str()).unwrap();
     }
 
-    if let Some(spheres) = cli.sphere {
-        let sphere = Renderer {
-            kind: RendererKind::Sphere{r: 0.5},
-            pos: Vec3f(0.0, 0.0, 0.0),
-            mat: Material::default()
-        };
-    
-        if spheres.is_empty() {
-            if let Some(scene) = &mut scene.renderer {
-                scene.push(sphere);
-            } else {
-                scene.renderer = Some(vec![sphere]);
-            }
+    if let Some(objs_flat) = cli.obj {
+        let args_rev: Vec<_> = objs_flat.iter().rev().map(|v| String::from(v)).collect();
+        let objs = args_rev.split_inclusive(|t| t.as_str() == "sphere" || t.as_str() == "plane").map(|v| v.iter().rev());
+
+        if scene.renderer.is_none() {
+            scene.renderer = Some(vec![]);
+        }
+
+        for obj in objs {
+            scene.renderer.as_mut().unwrap().push(Renderer::from_args(&obj.map(|v| String::from(v)).collect()));
         }
     }
 
-    if let Some(lights) = cli.light {
-        let light = Light {
-            pos: Vec3f(-0.5, -1.0, 0.5),
-            pwr: 0.5,
-            color: Vec3f(1.0, 1.0, 1.0)
-        };
-    
-        if lights.is_empty() {
-            if let Some(scene) = &mut scene.light {
-                scene.push(light);
-            } else {
-                scene.light = Some(vec![light]);
-            }
+    if let Some(lights_flat) = cli.light {
+        let args_rev: Vec<_> = lights_flat.iter().rev().map(|v| String::from(v)).collect();
+        let objs = args_rev.split_inclusive(|t| t.as_str() == "point").map(|v| v.iter().rev());
+
+        if scene.light.is_none() {
+            scene.light = Some(vec![]);
+        }
+
+        for obj in objs {
+            scene.light.as_mut().unwrap().push(Light::from_args(&obj.map(|v| String::from(v)).collect()));
         }
     }
 

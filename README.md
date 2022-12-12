@@ -16,7 +16,7 @@ cargo build --release --target x86_64-unknown-linux-musl
 
 ## Usage
 ```bash
-$ ./raytrace -h
+$ ./raytrace -h 
 Tiny raytracing microservice.
 
 Usage: raytrace [OPTIONS]
@@ -46,12 +46,12 @@ Options:
           Frame description json input filename
       --res <w> <h>
           Frame output image resolution
-      --cam <pos <x y z>> <dir <x y z>> <fov> <gamma> <exp>...
-          Frame camera
-      --sphere [<pos <x y z>> <r> <albedo <r g b>>...]
-          Render sphere
-      --light [<pos <x y z>> <pwr> <col <r g b>>...]
-          Light source
+      --cam <pos: <f32 f32 f32>> <dir: <f32 f32 f32>> <fov: <f32>> <gamma: <f32>> <exp: <f32>>...
+          Add camera to the scene
+      --obj [<<type: sphere|plane>> <param: <sphere: r: <f32>>|<plane: n: <f32 f32 f32>>> <pos: <f32 f32 f32>> <albedo: <f32 f32 f32>> <rough: <f32>> <metal: <f32>> <glass: <f32>> <opacity: <f32>> <emit>...]
+          Add renderer to the scene
+      --light [<<type: pt> pos: <f32 f32 f32>> <pwr: <f32>> <col: <f32 f32 f32>>...]
+          Add light source to the scene
   -h, --help
           Print help information
   -V, --version
@@ -61,9 +61,8 @@ Options:
 ### In-place in terminal
 Let's render simple scene with sphere in terminal:
 
-/!\ CLI make scene is not ready yet!
 ```bash
-raytrace --sphere --light pos: -0.5 -1 0.5
+raytrace --obj sphere --light pt pos: -0.5 -1 0.5
 ```
 
 It will produce an PNG image 800x600:
@@ -71,7 +70,7 @@ It will produce an PNG image 800x600:
 
 Now let's change a resolution and output file:
 ```bash
-raytrace --sphere --light pos: -0.5 -1 0.5 --res 1280 720 -o final.ppm
+raytrace --obj sphere --light pt pos: -0.5 -1 0.5 --res 1280 720 -o final.ppm
 ```
 
 ![image](doc/out1.png)
@@ -79,17 +78,17 @@ raytrace --sphere --light pos: -0.5 -1 0.5 --res 1280 720 -o final.ppm
 Let's make something interesting (it will take some time):
 
 ```bash
-raytrace --sphere r: 0.2 pos: 0 0 0.7 albedo: 1 0.92 0.6 emit \
-         --sphere r: 0.2 pos: 0 0.5 0 albedo: 1 0 0 \
-         --sphere r: 0.2 pos: 0.5 0 0 metal: 1 \
-         --sphere r: 0.2 pos: -0.25 -0.5 0 glass: 0.2 opacity: 0 \
-         --sphere r: 0.2 pos: -0.5 0 0 rough: 1 \
-         --sphere r: 100 pos: 0 0 -100.2 rough: 1 \
-         --sphere r: 100 pos: 0 0 101.2 rough: 1 \
-         --sphere r: 100 pos: 0 101 0 rough: 1 \
-         --sphere r: 100 pos: -101 0 0 albedo: 1 0 0 rough: 1 \
-         --sphere r: 100 pos: 101 0 0 albedo: 0 1 0 rough: 1 \
-         --cam pos: 0 -2 0.5 fov: 60 gamma 0.4 exp: 0.6 \
+raytrace --obj sphere r: 0.2 pos: 0 0 0.7 albedo: 1 0.92 0.6 emit \
+         --obj sphere r: 0.2 pos: 0 0.5 0 albedo: 1 0 0 \
+         --obj sphere r: 0.2 pos: 0.5 0 0 metal: 1 \
+         --obj sphere r: 0.2 pos: -0.25 -0.5 0 glass: 0.2 opacity: 0 \
+         --obj sphere r: 0.2 pos: -0.5 0 0 rough: 1 \
+         --obj sphere r: 100 pos: 0 0 -100.2 rough: 1 \
+         --obj sphere r: 100 pos: 0 0 101.2 rough: 1 \
+         --obj sphere r: 100 pos: 0 101 0 rough: 1 \
+         --obj sphere r: 100 pos: -101 0 0 albedo: 1 0 0 rough: 1 \
+         --obj sphere r: 100 pos: 101 0 0 albedo: 0 1 0 rough: 1 \
+         --cam pos: 0 -2 0.5 fov: 60 gamma: 0.4 exp: 0.6 \
          --sample 1024
 ```
 
@@ -215,7 +214,7 @@ raytrace --scene scene.json --frame frame.json --sample 1024
 
 1. Also you can use `--verbose,-v` flag with `--dry,-d` to get full info in json from cli command:
 ```bash
-raytrace -v -d --sphere --light pos: -0.5 -1 0.5
+raytrace -v -d --obj sphere --light pt pos: -0.5 -1 0.5
 ```
 
 ```json
@@ -224,7 +223,7 @@ raytrace -v -d --sphere --light pos: -0.5 -1 0.5
 
 2. With prettifier:
 ```bash
-raytrace -v -d --pretty --sphere --light pos: -0.5 -1 0.5
+raytrace -v -d --pretty --obj sphere --light pt pos: -0.5 -1 0.5
 ```
 
 ```json
