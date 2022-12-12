@@ -24,6 +24,7 @@ Usage: raytrace [OPTIONS]
 Options:
   -v, --verbose                         Print frame and scene json info
       --pretty                          Print frame and scene json info with pretty
+  -d, --dry                             Dry run (useful with verbose)
   -o, --output <FILE.EXT>               Final image output filename
       --bounce <BOUNCE>                 Max ray bounce
       --sample <SAMPLE>                 Max path-tracing samples
@@ -183,6 +184,66 @@ raytrace --scene scene.json --frame frame.json --sample 1024
 ```
 
 ![image](doc/out2.png)
+
+### Terminal to json
+
+1. Also you can use `--verbose,-v` flag with `--dry,-d` to get full info in json from cli command:
+```bash
+raytrace -v -d --sphere --light pos: -0.5 -1 0.5
+```
+
+```json
+{"frame":{"cam":{"dir":[0.0,1.0,0.0],"fov":90.0,"gamma":0.800000011920929,"pos":[0.0,-1.0,0.0]},"res":[800,600]},"rt":{"bounce":8,"loss":0.15000000596046448,"sample":16},"scene":{"light":[{"color":[1.0,1.0,1.0],"pos":[-0.5,-1.0,0.5],"pwr":0.5}],"renderer":[{"mat":{"albedo":[1.0,1.0,1.0],"emit":false,"glass":0.0,"metal":0.0,"opacity":1.0,"rough":0.0},"pos":[0.0,0.0,0.0],"r":0.5,"type":"sphere"}],"sky":[0.0,0.0,0.0]}}
+```
+
+2. With prettifier:
+```bash
+raytrace -v -d --pretty --sphere --light pos: -0.5 -1 0.5
+```
+
+```json
+{
+    "frame": {
+        "cam": {
+            "dir": [0, 1, 0],
+            "fov": 90,
+            "gamma": 0.800000011920929,
+            "pos": [0, -1, 0]
+        },
+        "res": [800, 600]
+    },
+    "rt": {
+        "bounce": 8,
+        "loss": 0.15000000596046448,
+        "sample": 16
+    },
+    "scene": {
+        "light": [
+            {
+                "color": [1, 1, 1],
+                "pos": [-0.5, -1, 0.5],
+                "pwr": 0.5
+            }
+        ],
+        "renderer": [
+            {
+                "mat": {
+                    "albedo": [1, 1, 1],
+                    "emit": false,
+                    "glass": 0,
+                    "metal": 0,
+                    "opacity": 1,
+                    "rough": 0
+                },
+                "pos": [0, 0, 0],
+                "r": 0.5,
+                "type": "sphere"
+            }
+        ],
+        "sky": [0, 0, 0]
+    }
+}
+```
 
 ## API
 TBD...

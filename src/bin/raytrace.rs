@@ -8,11 +8,14 @@ use serde_json::json;
 #[derive(Parser)]
 #[command(author, version, about = "Tiny raytracing microservice.", long_about = None)]
 struct CLI {
-    #[arg(short, long, action, help = "Print frame and scene json info")]
+    #[arg(short, long, action, help = "Print full info in json")]
     verbose: bool,
 
-    #[arg(long, action, help = "Print frame and scene json info with pretty")]
+    #[arg(long, action, help = "Print full info in json with prettifier")]
     pretty: bool,
+
+    #[arg(short, long, action, help = "Dry run (useful with verbose)")]
+    dry: bool,
 
     #[arg(short, long, help = "Final image output filename", value_name = "FILE.EXT")]
     output: Option<std::path::PathBuf>,
@@ -624,6 +627,10 @@ fn main() {
         } else {
             println!("{}", info_json.to_string());
         }
+    }
+
+    if cli.dry {
+        return;
     }
 
     // raytrace
