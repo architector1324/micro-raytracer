@@ -48,11 +48,14 @@ struct CLI {
     #[arg(long, value_names = ["pos: <f32 f32 f32>", "dir: <f32 f32 f32>", "fov: <f32>", "gamma: <f32>", "exp: <f32>"], num_args = 1..,  allow_negative_numbers = true, next_line_help = true, help = "Add camera to the scene")]
     cam: Option<Vec<String>>,
 
-    #[arg(long, value_names = ["<type: sphere|plane>", "param: <sphere: r: <f32>>|<plane: n: <f32 f32 f32>>", "pos: <f32 f32 f32>" , "albedo: <f32 f32 f32>", "rough: <f32>", "metal: <f32>", "glass: <f32>", "opacity: <f32>", "emit"], num_args = 0.., action = clap::ArgAction::Append, allow_negative_numbers = true, next_line_help = true, help = "Add renderer to the scene")]
+    #[arg(long, value_names = ["<type: sphere(sph)|plane(pln)>", "param: <sphere: r: <f32>>|<plane: n: <f32 f32 f32>>", "pos: <f32 f32 f32>" , "albedo: <f32 f32 f32>", "rough: <f32>", "metal: <f32>", "glass: <f32>", "opacity: <f32>", "emit"], num_args = 0.., action = clap::ArgAction::Append, allow_negative_numbers = true, next_line_help = true, help = "Add renderer to the scene")]
     obj: Option<Vec<String>>,
 
-    #[arg(long, value_names = ["<type: pt> pos: <f32 f32 f32>", "pwr: <f32>", "col: <f32 f32 f32>"], num_args = 0.., action = clap::ArgAction::Append, allow_negative_numbers = true, next_line_help = true, help = "Add light source to the scene")]
-    light: Option<Vec<String>>
+    #[arg(long, value_names = ["param: <point(pt): <f32 f32 f32>>|<dir: <f32 f32 f32>>", "pwr: <f32>", "col: <f32 f32 f32>"], num_args = 0.., action = clap::ArgAction::Append, allow_negative_numbers = true, next_line_help = true, help = "Add light source to the scene")]
+    light: Option<Vec<String>>,
+
+    #[arg(long, value_names = ["r", "g", "b"], next_line_help = true, action = clap::ArgAction::Append, help="Scene sky color")]
+    sky: Option<Vec<String>>
 }
 
 
@@ -130,8 +133,20 @@ struct Renderer {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+#[serde(tag = "type", rename_all = "lowercase")]
+enum LightKind {
+    Point {
+        pos: Vec3f
+    },
+    Dir {
+        dir: Vec3f
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 struct Light {
-    pos: Vec3f,
+    #[serde(flatten)]
+    kind: LightKind,
     pwr: f32,
     color: Vec3f
 }
@@ -361,7 +376,9 @@ impl Default for Material {
 impl Default for Light {
     fn default() -> Self {
         Light {
-            pos: Vec3f::default(),
+            kind: LightKind::Point{
+                pos: Vec3f::default()
+            },
             pwr: 0.5,
             color: Vec3f(1.0, 1.0, 1.0)
         }
@@ -447,23 +464,50 @@ impl FromArgs for Camera {
 impl FromArgs for Light {
     fn from_args(args: &Vec<String>) -> Self {
         let t = &args[0];
+        let mut it = args.iter();
 
-        if t.as_str() != "pt" {
-            panic!("`{}` type is unxpected!", t);
-        }
+        // parse object
+        let mut light = Light {
+            kind: match t.as_str() {
+                "pt:" | "point:" => LightKind::Point {pos: Vec3f::default()},
+                "dir:" => LightKind::Dir {dir: Vec3f(0.0, 1.0, 0.0)},
+                _ => panic!("`{}` type is unxpected!", t)
+            },
+            ..Default::default()
+        };
 
-        let mut light = Light::default();
-        let mut it = args.iter().skip(1);
-
+        // modify params
         while let Some(param) = it.next() {
-            match param.as_str() {
-                "pos:" => {
-                    light.pos = Vec3f(
-                        it.next().unwrap().parse::<f32>().expect("should be <f32>!"),
-                        it.next().unwrap().parse::<f32>().expect("should be <f32>!"),
-                        it.next().unwrap().parse::<f32>().expect("should be <f32>!")
-                    )
+            // type params
+            let is_type_param = match light.kind {
+                LightKind::Point {ref mut pos} => {
+                    if param.as_str() == "pt:" || param.as_str() == "point:" {
+                        *pos = Vec3f(
+                            it.next().unwrap().parse::<f32>().expect("should be <f32>!"),
+                            it.next().unwrap().parse::<f32>().expect("should be <f32>!"),
+                            it.next().unwrap().parse::<f32>().expect("should be <f32>!")
+                        );
+                        true
+                    } else {
+                        false
+                    }
                 },
+                LightKind::Dir {ref mut dir} => {
+                    if param.as_str() == "dir:" {
+                        *dir = Vec3f(
+                            it.next().unwrap().parse::<f32>().expect("should be <f32>!"),
+                            it.next().unwrap().parse::<f32>().expect("should be <f32>!"),
+                            it.next().unwrap().parse::<f32>().expect("should be <f32>!")
+                        );
+                        true
+                    } else {
+                        false
+                    }
+                }
+            };
+
+            // common params
+            match param.as_str() {
                 "col:" => {
                     light.color = Vec3f(
                         it.next().unwrap().parse::<f32>().expect("should be <f32>!"),
@@ -472,7 +516,11 @@ impl FromArgs for Light {
                     )
                 },
                 "pwr:" => light.pwr = it.next().unwrap().parse::<f32>().expect("should be <f32>!"),
-                _ => panic!("`{}` param for `light` is unxpected!", param)
+                _ => {
+                    if !is_type_param {
+                        panic!("`{}` param for `light` is unxpected!", param);
+                    }
+                }
             }
         }
 
@@ -488,8 +536,8 @@ impl FromArgs for Renderer {
         // parse object
         let mut obj = Renderer {
             kind: match t.as_str() {
-                "sphere" => RendererKind::Sphere {r: 0.5},
-                "plane" => RendererKind::Plane {n: Vec3f(0.0, 0.0, 1.0)},
+                "sph" | "sphere" => RendererKind::Sphere {r: 0.5},
+                "pln" | "plane" => RendererKind::Plane {n: Vec3f(0.0, 0.0, 1.0)},
                 _ => panic!("`{}` type is unxpected!", t)
             },
             pos: Vec3f::default(),
@@ -636,7 +684,10 @@ impl RayTracer {
 
         if let Some(lights) = scene.light.as_ref() {
             for light in lights {
-                let l = light.pos - hit_p;
+                let l = match light.kind {
+                    LightKind::Point { pos } => pos - hit_p,
+                    LightKind::Dir {dir} => -dir.norm()
+                };
 
                 if let None = RayTracer::find_closest_intersection(scene, &Ray{orig: hit_p + l.norm() * 0.001, dir: l.norm(), pwr:0.0, t:0.0, bounce:0}) {
                     let diff = (l.norm() * n).max(0.0);
@@ -707,7 +758,7 @@ fn main() {
 
     if let Some(objs_flat) = cli.obj {
         let args_rev: Vec<_> = objs_flat.iter().rev().map(|v| String::from(v)).collect();
-        let objs = args_rev.split_inclusive(|t| t.as_str() == "sphere" || t.as_str() == "plane").map(|v| v.iter().rev());
+        let objs = args_rev.split_inclusive(|t| ["sphere", "sph", "plane", "pln"].contains(&t.as_str())).map(|v| v.iter().rev());
 
         if scene.renderer.is_none() {
             scene.renderer = Some(vec![]);
@@ -720,7 +771,7 @@ fn main() {
 
     if let Some(lights_flat) = cli.light {
         let args_rev: Vec<_> = lights_flat.iter().rev().map(|v| String::from(v)).collect();
-        let objs = args_rev.split_inclusive(|t| t.as_str() == "point").map(|v| v.iter().rev());
+        let objs = args_rev.split_inclusive(|t| ["pt:", "point:", "dir:"].contains(&t.as_str())).map(|v| v.iter().rev());
 
         if scene.light.is_none() {
             scene.light = Some(vec![]);
@@ -729,6 +780,16 @@ fn main() {
         for obj in objs {
             scene.light.as_mut().unwrap().push(Light::from_args(&obj.map(|v| String::from(v)).collect()));
         }
+    }
+
+    if let Some(sky) = cli.sky {
+        let mut it = sky.iter();
+
+        scene.sky = Vec3f(
+            it.next().unwrap().parse::<f32>().expect("should be <f32>!"),
+            it.next().unwrap().parse::<f32>().expect("should be <f32>!"),
+            it.next().unwrap().parse::<f32>().expect("should be <f32>!")
+        )
     }
 
     // setup raytacer
