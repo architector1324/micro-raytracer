@@ -29,6 +29,9 @@ struct CLI {
     #[arg(long, help="Final image gamma correction")]
     gamma: Option<f32>,
 
+    #[arg(long, help="Final image camera exposure")]
+    exp: Option<f32>,
+
     #[arg(long, help="Ray bounce energy loss")]
     loss: Option<f32>,
 
@@ -87,7 +90,8 @@ struct Camera {
     pos: Vec3f,
     dir: Vec3f,
     fov: f32,
-    gamma: f32
+    gamma: f32,
+    exp: f32
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -318,7 +322,8 @@ impl Default for Camera {
             pos: Vec3f(0.0, -1.0, 0.0),
             dir: Vec3f(0.0, 1.0, 0.0),
             fov: 90.0,
-            gamma: 0.8
+            gamma: 0.8,
+            exp: 0.2
         }
     }
 }
@@ -542,6 +547,10 @@ fn main() {
         frame.cam.gamma = gamma;
     }
 
+    if let Some(exp) = cli.exp {
+        frame.cam.exp = exp;
+    }
+
     if let Some(cam_args) = cli.cam {
         let mut it = cam_args.iter();
 
@@ -655,9 +664,12 @@ fn main() {
                 // raycast
                 let samples = (0..rt_syc_c.sample).map(|_| rt_syc_c.raytrace(Vec2f(x as f32, y as f32), &scene_syc_c, &frame_sync_c));
                 let col = samples.fold(Vec3f::default(), |acc, v| acc + v) / (rt_syc_c.sample as f32);
-                
+
                 // gamma correction
-                let final_col = col.to_array().map(|v| (v).powf(frame_sync_c.cam.gamma));
+                let mut final_col = col.to_array().map(|v| (v).powf(frame_sync_c.cam.gamma));
+
+                // tone mapping (Reinhard's)
+                final_col = final_col.map(|v| v * (1.0 + v / ((1.0 - frame_sync_c.cam.exp) as f32).powi(2)) / (1.0 + v));
 
                 // set pixel
                 let mut guard = guard_c.lock().unwrap();

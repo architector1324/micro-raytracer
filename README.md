@@ -22,13 +22,14 @@ Tiny raytracing microservice.
 Usage: raytrace [OPTIONS]
 
 Options:
-  -v, --verbose                         Print frame and scene json info
-      --pretty                          Print frame and scene json info with pretty
+  -v, --verbose                         Print full info in json
+      --pretty                          Print full info in json with prettifier
   -d, --dry                             Dry run (useful with verbose)
   -o, --output <FILE.EXT>               Final image output filename
       --bounce <BOUNCE>                 Max ray bounce
       --sample <SAMPLE>                 Max path-tracing samples
       --gamma <GAMMA>                   Final image gamma correction
+      --exp <EXP>                       Final image camera exposure
       --loss <LOSS>                     Ray bounce energy loss
   -u, --update                          Save output on each sample
   -w, --worker <WORKER>                 Parallel workers count
@@ -72,7 +73,7 @@ raytrace --sphere r: 0.2 albedo: 1 0.92 0.6 emit \
          --sphere r: 100 pos: 0 101 0 rough: 1 \
          --sphere r: 100 pos: -101 0 0 albedo: 1 0 0 rough: 1 \
          --sphere r: 100 pos: 101 0 0 albedo: 0 1 0 rough: 1 \
-         --cam pos: 0 -2 0.5 fov: 60 gamma 0.42 \
+         --cam pos: 0 -2 0.5 fov: 60 gamma 0.4 exp: 0.5 \
          --sample 1024
 ```
 
@@ -172,7 +173,8 @@ raytrace --sphere r: 0.2 albedo: 1 0.92 0.6 emit \
         "pos": [0, -2, 0.5],
         "dir": [0, 1, 0],
         "fov": 60,
-        "gamma": 0.42
+        "gamma": 0.4,
+        "exp": 0.5
     }
 }
 ```
@@ -193,7 +195,7 @@ raytrace -v -d --sphere --light pos: -0.5 -1 0.5
 ```
 
 ```json
-{"frame":{"cam":{"dir":[0.0,1.0,0.0],"fov":90.0,"gamma":0.800000011920929,"pos":[0.0,-1.0,0.0]},"res":[800,600]},"rt":{"bounce":8,"loss":0.15000000596046448,"sample":16},"scene":{"light":[{"color":[1.0,1.0,1.0],"pos":[-0.5,-1.0,0.5],"pwr":0.5}],"renderer":[{"mat":{"albedo":[1.0,1.0,1.0],"emit":false,"glass":0.0,"metal":0.0,"opacity":1.0,"rough":0.0},"pos":[0.0,0.0,0.0],"r":0.5,"type":"sphere"}],"sky":[0.0,0.0,0.0]}}
+{"frame":{"cam":{"dir":[0.0,1.0,0.0],"fov":90.0,"gamma":0.8,"exp":0.2,"pos":[0.0,-1.0,0.0]},"res":[800,600]},"rt":{"bounce":8,"loss":0.15,"sample":16},"scene":{"light":[{"color":[1.0,1.0,1.0],"pos":[-0.5,-1.0,0.5],"pwr":0.5}],"renderer":[{"mat":{"albedo":[1.0,1.0,1.0],"emit":false,"glass":0.0,"metal":0.0,"opacity":1.0,"rough":0.0},"pos":[0.0,0.0,0.0],"r":0.5,"type":"sphere"}],"sky":[0.0,0.0,0.0]}}
 ```
 
 2. With prettifier:
@@ -207,14 +209,15 @@ raytrace -v -d --pretty --sphere --light pos: -0.5 -1 0.5
         "cam": {
             "dir": [0, 1, 0],
             "fov": 90,
-            "gamma": 0.800000011920929,
+            "gamma": 0.8,
+            "exp": 0.2,
             "pos": [0, -1, 0]
         },
         "res": [800, 600]
     },
     "rt": {
         "bounce": 8,
-        "loss": 0.15000000596046448,
+        "loss": 0.15,
         "sample": 16
     },
     "scene": {
