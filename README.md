@@ -6,6 +6,14 @@ The main idea is to use flags or [json](https://www.json.org/json-en.html) for g
 
 It's something like [Zenity](https://github.com/GNOME/zenity), that provides you to create simple UI in terminal.
 
+## Build
+Build statically for [linux](https://en.wikipedia.org/wiki/Linux) using [musl](https://musl.libc.org/). This executable may run on any linux system without any additional libs.
+
+```bash
+rustup target add x86_64-unknown-linux-musl
+cargo build --release --target x86_64-unknown-linux-musl
+```
+
 ## Usage
 ### In-place in terminal
 Let's render simple scene with sphere in terminal:
@@ -166,12 +174,12 @@ TBD...
         "pos": [0, -2, 0.5],
         "dir": [0, 1, 0],
         "fov": 60,
-        "gamma": 0.42
+        "gamma": 0.5
     }
 }
 ```
 
-3. Finally, run following command (it will take a lot time, about 5 minutes):
+3. Finally, run following command (it will take some time):
 
 ```bash
 raytrace --scene scene.json --frame frame.json --sample 1024

@@ -26,8 +26,11 @@ struct CLI {
     #[arg(long, help="Ray bounce energy loss")]
     loss: Option<f32>,
 
-    #[arg(long, action, help="Save output on each sample")]
+    #[arg(short, long, action, help="Save output on each sample")]
     update: bool,
+
+    #[arg(short, long, help="Parallel workers count")]
+    worker: Option<usize>,
 
     #[arg(short, long, help = "Scene description json input filename", value_name = "FILE.json")]
     scene: Option<std::path::PathBuf>,
@@ -604,20 +607,39 @@ fn main() {
 
     // raytrace
     let filename = cli.output.unwrap_or(std::path::PathBuf::from("out.png"));
-    let mut img: image::RgbImage = image::ImageBuffer::new(frame.res.0.into(), frame.res.1.into());
+    let img: image::RgbImage = image::ImageBuffer::new(frame.res.0.into(), frame.res.1.into());
 
-    for (x, y, px) in img.enumerate_pixels_mut() {
-        // raycast
-        let samples = (0..rt.sample).map(|_| rt.raytrace(Vec2f(x as f32, y as f32), &scene, &frame));
-        let col = samples.fold(Vec3f::default(), |acc, v| acc + v) / (rt.sample as f32);
+    let pool = threadpool::ThreadPool::new(cli.worker.unwrap_or(24));
 
-        // gamma correction
-        let final_col = col.to_array().map(|v| (v).powf(frame.cam.gamma));
+    let img_mtx = std::sync::Arc::new(std::sync::Mutex::new(img));
+    let scene_sync = std::sync::Arc::new(scene);
+    let frame_sync = std::sync::Arc::new(frame);
+    let rt_sync = std::sync::Arc::new(rt);
 
-        // set pixel
-        *px = image::Rgb(final_col.map(|v| (255.0 * v) as u8));
+    for x in 0..frame_sync.res.0 {
+        for y in 0..frame_sync.res.1 {
+            let guard_c = std::sync::Arc::clone(&img_mtx);
+            let rt_syc_c = std::sync::Arc::clone(&rt_sync);
+            let scene_syc_c = std::sync::Arc::clone(&scene_sync);
+            let frame_sync_c = std::sync::Arc::clone(&frame_sync);
+
+            pool.execute(move || {
+                // raycast
+                let samples = (0..rt_syc_c.sample).map(|_| rt_syc_c.raytrace(Vec2f(x as f32, y as f32), &scene_syc_c, &frame_sync_c));
+                let col = samples.fold(Vec3f::default(), |acc, v| acc + v) / (rt_syc_c.sample as f32);
+                
+                // gamma correction
+                let final_col = col.to_array().map(|v| (v).powf(frame_sync_c.cam.gamma));
+
+                // set pixel
+                let mut guard = guard_c.lock().unwrap();
+                let px = guard.get_pixel_mut(x.clone().into(), y.clone().into());
+                *px = image::Rgb(final_col.map(|v| (255.0 * v) as u8));
+            });
+        }
     }
- 
+    pool.join();
+
     // save output
-    img.save(filename).unwrap();
+    img_mtx.lock().unwrap().save(filename).unwrap();
 }
