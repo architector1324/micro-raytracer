@@ -64,7 +64,8 @@ raytrace --sphere --light pos: -0.5 -1 0.5 --res 1280 720 -o final.ppm
 Let's make something interesting (it will take some time):
 
 ```bash
-raytrace --sphere r: 0.2 albedo: 1 0.92 0.6 emit \
+raytrace --sphere r: 0.2 pos: 0 0 0.7 albedo: 1 0.92 0.6 emit \
+         --sphere r: 0.2 pos: 0 0.5 0 albedo: 1 0 0 \
          --sphere r: 0.2 pos: 0.5 0 0 metal: 1 \
          --sphere r: 0.2 pos: -0.25 -0.5 0 glass: 0.2 opacity: 0 \
          --sphere r: 0.2 pos: -0.5 0 0 rough: 1 \
@@ -73,7 +74,7 @@ raytrace --sphere r: 0.2 albedo: 1 0.92 0.6 emit \
          --sphere r: 100 pos: 0 101 0 rough: 1 \
          --sphere r: 100 pos: -101 0 0 albedo: 1 0 0 rough: 1 \
          --sphere r: 100 pos: 101 0 0 albedo: 0 1 0 rough: 1 \
-         --cam pos: 0 -2 0.5 fov: 60 gamma 0.4 exp: 0.5 \
+         --cam pos: 0 -2 0.5 fov: 60 gamma 0.4 exp: 0.6 \
          --sample 1024
 ```
 
@@ -87,6 +88,7 @@ raytrace --sphere r: 0.2 albedo: 1 0.92 0.6 emit \
         {
             "type": "sphere",
             "r": 0.2,
+            "pos": [0, 0, 0.7],
             "mat": {
                 "albedo": [1, 0.917647058824, 0.596078431372],
                 "emit": true
@@ -94,10 +96,17 @@ raytrace --sphere r: 0.2 albedo: 1 0.92 0.6 emit \
         },
         {
             "type": "sphere",
+            "r": 0.2,
+            "pos": [0, 0.5, 0],
+            "mat": {
+                "albedo": [1, 0, 0]
+            }
+        },
+        {
+            "type": "sphere",
             "pos": [0.5, 0, 0],
             "r": 0.2,
             "mat": {
-                "albedo": [1, 1, 1],
                 "metal": 1
             }
         },
@@ -174,7 +183,7 @@ raytrace --sphere r: 0.2 albedo: 1 0.92 0.6 emit \
         "dir": [0, 1, 0],
         "fov": 60,
         "gamma": 0.4,
-        "exp": 0.5
+        "exp": 0.6
     }
 }
 ```
