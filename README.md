@@ -15,6 +15,31 @@ cargo build --release --target x86_64-unknown-linux-musl
 ```
 
 ## Usage
+```bash
+./raytrace -h
+Tiny raytracing microservice.
+
+Usage: raytrace [OPTIONS]
+
+Options:
+  -v, --verbose                         Print frame and scene json info
+      --pretty                          Print frame and scene json info with pretty
+  -o, --output <FILE.EXT>               Final image output filename
+      --bounce <BOUNCE>                 Max ray bounce
+      --sample <SAMPLE>                 Max path-tracing samples
+      --loss <LOSS>                     Ray bounce energy loss
+  -u, --update                          Save output on each sample
+  -w, --worker <WORKER>                 Parallel workers count
+  -s, --scene <FILE.json>               Scene description json input filename
+  -f, --frame <FILE.json>               Frame description json input filename
+      --res <w> <h>                     Frame output image resolution
+      --cam <pos> <dir> <fov>...        Frame camera
+      --sphere [<pos> <r> <albedo>...]  Render sphere
+      --light [<pos> <pwr> <col>...]    Light source
+  -h, --help                            Print help information
+  -V, --version                         Print version information
+```
+
 ### In-place in terminal
 Let's render simple scene with sphere in terminal:
 ```bash

@@ -311,7 +311,7 @@ impl Default for Camera {
             pos: Vec3f(0.0, -1.0, 0.0),
             dir: Vec3f(0.0, 1.0, 0.0),
             fov: 90.0,
-            gamma: 0.5
+            gamma: 0.8
         }
     }
 }
