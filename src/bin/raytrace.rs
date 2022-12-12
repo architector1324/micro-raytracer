@@ -23,6 +23,9 @@ struct CLI {
     #[arg(long, help="Max path-tracing samples")]
     sample: Option<usize>,
 
+    #[arg(long, help="Final image gamma correction")]
+    gamma: Option<f32>,
+
     #[arg(long, help="Ray bounce energy loss")]
     loss: Option<f32>,
 
@@ -41,6 +44,7 @@ struct CLI {
     #[arg(long, value_names = ["w", "h"], help = "Frame output image resolution")]
     res: Option<Vec<u16>>,
 
+    // scene builder
     #[arg(long, value_names = ["pos", "dir", "fov"], num_args = 1..=10,  help = "Frame camera")]
     cam: Option<Vec<String>>,
 
@@ -529,6 +533,10 @@ fn main() {
             pair.get(0).unwrap().clone(),
             pair.get(1).unwrap().clone()
         );
+    }
+
+    if let Some(gamma) = cli.gamma {
+        frame.cam.gamma = gamma;
     }
 
     if let Some(cam_args) = cli.cam {

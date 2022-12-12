@@ -16,7 +16,7 @@ cargo build --release --target x86_64-unknown-linux-musl
 
 ## Usage
 ```bash
-./raytrace -h
+$ ./raytrace -h
 Tiny raytracing microservice.
 
 Usage: raytrace [OPTIONS]
@@ -27,6 +27,7 @@ Options:
   -o, --output <FILE.EXT>               Final image output filename
       --bounce <BOUNCE>                 Max ray bounce
       --sample <SAMPLE>                 Max path-tracing samples
+      --gamma <GAMMA>                   Final image gamma correction
       --loss <LOSS>                     Ray bounce energy loss
   -u, --update                          Save output on each sample
   -w, --worker <WORKER>                 Parallel workers count
