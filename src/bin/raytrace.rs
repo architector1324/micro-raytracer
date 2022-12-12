@@ -90,6 +90,7 @@ struct Frame {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+#[serde(default)]
 struct Material {
     albedo: Vec3f,
     rough: f32,
@@ -111,7 +112,11 @@ enum RendererKind {
 struct Renderer {
     #[serde(flatten)]
     kind: RendererKind,
+
+    #[serde(default)]
     mat: Material,
+
+    #[serde(default)]
     pos: Vec3f,
 }
 
@@ -126,6 +131,8 @@ struct Light {
 struct Scene {
     renderer: Option<Vec<Renderer>>,
     light: Option<Vec<Light>>,
+
+    #[serde(default)]
     sky: Vec3f
 }
 
@@ -324,6 +331,19 @@ impl Default for Scene {
             renderer: None,
             light: None,
             sky: Vec3f::default()
+        }
+    }
+}
+
+impl Default for Material {
+    fn default() -> Self {
+        Material {
+            albedo: Vec3f(1.0, 1.0, 1.0),
+            rough: 0.0,
+            metal: 0.0,
+            glass: 0.0,
+            opacity: 1.0,
+            emit: false
         }
     }
 }
@@ -548,14 +568,7 @@ fn main() {
         let sphere = Renderer {
             kind: RendererKind::Sphere{r: 0.5},
             pos: Vec3f(0.0, 0.0, 0.0),
-            mat: Material {
-                albedo: Vec3f(1.0, 1.0, 1.0),
-                rough: 0.0,
-                metal: 0.0,
-                glass: 0.0,
-                opacity: 1.0,
-                emit: false
-            }
+            mat: Material::default()
         };
     
         if spheres.is_empty() {

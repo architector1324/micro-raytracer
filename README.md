@@ -31,12 +31,6 @@ raytrace --sphere --light pos: -0.5 -1 0.5 --res 1280 720 -o final.ppm
 
 ![image](doc/out1.png)
 
-Let's change some color of sphere:
-```bash
-raytrace --sphere albedo: 1 0 0 --light pos: -0.5 -1 0.5 --res 1280 720 -o final.ppm
-```
-
-TBD...
 
 ### JSON frame and scene description
 1. First create `scene.json` file contains scene information:
@@ -45,14 +39,9 @@ TBD...
     "renderer": [
         {
             "type": "sphere",
-            "pos": [0, 0, 0],
             "r": 0.2,
             "mat": {
                 "albedo": [1, 0.917647058824, 0.596078431372],
-                "rough": 0,
-                "metal": 0,
-                "glass": 0,
-                "opacity": 1,
                 "emit": true
             }
         },
@@ -62,11 +51,7 @@ TBD...
             "r": 0.2,
             "mat": {
                 "albedo": [1, 1, 1],
-                "rough": 0,
-                "metal": 1,
-                "glass": 0,
-                "opacity": 1,
-                "emit": false
+                "metal": 1
             }
         },
         {
@@ -74,12 +59,8 @@ TBD...
             "pos": [-0.25, -0.5, 0],
             "r": 0.2,
             "mat": {
-                "albedo": [1, 1, 1],
-                "rough": 0,
-                "metal": 0,
                 "glass": 0.2,
-                "opacity": 0,
-                "emit": false
+                "opacity": 0
             }
         },
         {
@@ -87,12 +68,7 @@ TBD...
             "pos": [-0.5, 0, 0],
             "r": 0.2,
             "mat": {
-                "albedo": [1, 1, 1],
-                "rough": 1,
-                "metal": 0,
-                "glass": 0,
-                "opacity": 1,
-                "emit": false
+                "rough": 1
             }
         },
         {
@@ -100,12 +76,7 @@ TBD...
             "pos": [0, 0, -100.2],
             "r": 100,
             "mat": {
-                "albedo": [1, 1, 1],
-                "rough": 1,
-                "metal": 0,
-                "glass": 0,
-                "opacity": 1,
-                "emit": false
+                "rough": 1
             }
         },
         {
@@ -113,12 +84,7 @@ TBD...
             "pos": [0, 0, 101.2],
             "r": 100,
             "mat": {
-                "albedo": [1, 1, 1],
-                "rough": 1,
-                "metal": 0,
-                "glass": 0,
-                "opacity": 1,
-                "emit": false
+                "rough": 1
             }
         },
         {
@@ -126,12 +92,7 @@ TBD...
             "pos": [0, 101, 0],
             "r": 100,
             "mat": {
-                "albedo": [1, 1, 1],
-                "rough": 1,
-                "metal": 0,
-                "glass": 0,
-                "opacity": 1,
-                "emit": false
+                "rough": 1
             }
         },
         {
@@ -140,11 +101,7 @@ TBD...
             "r": 100,
             "mat": {
                 "albedo": [1, 0, 0],
-                "rough": 1,
-                "metal": 0,
-                "glass": 0,
-                "opacity": 1,
-                "emit": false
+                "rough": 1
             }
         },
         {
@@ -153,16 +110,11 @@ TBD...
             "r": 100,
             "mat": {
                 "albedo": [0, 1, 0],
-                "rough": 1,
-                "metal": 0,
-                "glass": 0,
-                "opacity": 1,
-                "emit": false
+                "rough": 1
             }
         }
     ],
-    "light": [],
-    "sky": [0, 0, 0]
+    "light": []
 }
 ```
 
@@ -174,7 +126,7 @@ TBD...
         "pos": [0, -2, 0.5],
         "dir": [0, 1, 0],
         "fov": 60,
-        "gamma": 0.5
+        "gamma": 0.42
     }
 }
 ```

@@ -2,14 +2,9 @@
     "renderer": [
         {
             "type": "sphere",
-            "pos": [0, 0, 0],
             "r": 0.2,
             "mat": {
                 "albedo": [1, 0.917647058824, 0.596078431372],
-                "rough": 0,
-                "metal": 0,
-                "glass": 0,
-                "opacity": 1,
                 "emit": true
             }
         },
@@ -19,11 +14,7 @@
             "r": 0.2,
             "mat": {
                 "albedo": [1, 1, 1],
-                "rough": 0,
-                "metal": 1,
-                "glass": 0,
-                "opacity": 1,
-                "emit": false
+                "metal": 1
             }
         },
         {
@@ -31,12 +22,8 @@
             "pos": [-0.25, -0.5, 0],
             "r": 0.2,
             "mat": {
-                "albedo": [1, 1, 1],
-                "rough": 0,
-                "metal": 0,
                 "glass": 0.2,
-                "opacity": 0,
-                "emit": false
+                "opacity": 0
             }
         },
         {
@@ -44,12 +31,7 @@
             "pos": [-0.5, 0, 0],
             "r": 0.2,
             "mat": {
-                "albedo": [1, 1, 1],
-                "rough": 1,
-                "metal": 0,
-                "glass": 0,
-                "opacity": 1,
-                "emit": false
+                "rough": 1
             }
         },
         {
@@ -57,12 +39,7 @@
             "pos": [0, 0, -100.2],
             "r": 100,
             "mat": {
-                "albedo": [1, 1, 1],
-                "rough": 1,
-                "metal": 0,
-                "glass": 0,
-                "opacity": 1,
-                "emit": false
+                "rough": 1
             }
         },
         {
@@ -70,12 +47,7 @@
             "pos": [0, 0, 101.2],
             "r": 100,
             "mat": {
-                "albedo": [1, 1, 1],
-                "rough": 1,
-                "metal": 0,
-                "glass": 0,
-                "opacity": 1,
-                "emit": false
+                "rough": 1
             }
         },
         {
@@ -83,12 +55,7 @@
             "pos": [0, 101, 0],
             "r": 100,
             "mat": {
-                "albedo": [1, 1, 1],
-                "rough": 1,
-                "metal": 0,
-                "glass": 0,
-                "opacity": 1,
-                "emit": false
+                "rough": 1
             }
         },
         {
@@ -97,11 +64,7 @@
             "r": 100,
             "mat": {
                 "albedo": [1, 0, 0],
-                "rough": 1,
-                "metal": 0,
-                "glass": 0,
-                "opacity": 1,
-                "emit": false
+                "rough": 1
             }
         },
         {
@@ -110,14 +73,9 @@
             "r": 100,
             "mat": {
                 "albedo": [0, 1, 0],
-                "rough": 1,
-                "metal": 0,
-                "glass": 0,
-                "opacity": 1,
-                "emit": false
+                "rough": 1
             }
         }
     ],
-    "light": [],
-    "sky": [0, 0, 0]
+    "light": []
 }
