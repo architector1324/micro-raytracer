@@ -5,33 +5,20 @@
             "pos": [0, 0, 0],
             "r": 0.2,
             "mat": {
-                "albedo": [1, 0, 0],
+                "albedo": [1, 0.917647058824, 0.596078431372],
                 "rough": 0,
                 "metal": 0,
                 "glass": 0,
                 "opacity": 1,
-                "emit": false
+                "emit": true
             }
         },
         {
             "type": "sphere",
-            "pos": [-0.25, -0.5, -0.1],
-            "r": 0.1,
+            "pos": [0.5, 0, 0],
+            "r": 0.2,
             "mat": {
-                "albedo": [0, 0, 1],
-                "rough": 0.5,
-                "metal": 0,
-                "glass": 0,
-                "opacity": 1,
-                "emit": false
-            }
-        },
-        {
-            "type": "sphere",
-            "pos": [0.25, -0.5, -0.1],
-            "r": 0.1,
-            "mat": {
-                "albedo": [0, 1, 0],
+                "albedo": [1, 1, 1],
                 "rough": 0,
                 "metal": 1,
                 "glass": 0,
@@ -41,24 +28,89 @@
         },
         {
             "type": "sphere",
-            "pos": [-0.1, -0.6, 0],
-            "r": 0.05,
+            "pos": [-0.25, -0.5, 0],
+            "r": 0.2,
             "mat": {
                 "albedo": [1, 1, 1],
                 "rough": 0,
                 "metal": 0,
-                "glass": 0.5,
+                "glass": 0.2,
                 "opacity": 0,
                 "emit": false
             }
         },
         {
-            "type": "plane",
-            "pos": [0, 0, -0.2],
-            "n": [0, 0, 1],
+            "type": "sphere",
+            "pos": [-0.5, 0, 0],
+            "r": 0.2,
             "mat": {
                 "albedo": [1, 1, 1],
-                "rough": 0.5,
+                "rough": 1,
+                "metal": 0,
+                "glass": 0,
+                "opacity": 1,
+                "emit": false
+            }
+        },
+        {
+            "type": "sphere",
+            "pos": [0, 0, -100.2],
+            "r": 100,
+            "mat": {
+                "albedo": [1, 1, 1],
+                "rough": 1,
+                "metal": 0,
+                "glass": 0,
+                "opacity": 1,
+                "emit": false
+            }
+        },
+        {
+            "type": "sphere",
+            "pos": [0, 0, 101.2],
+            "r": 100,
+            "mat": {
+                "albedo": [1, 1, 1],
+                "rough": 1,
+                "metal": 0,
+                "glass": 0,
+                "opacity": 1,
+                "emit": false
+            }
+        },
+        {
+            "type": "sphere",
+            "pos": [0, 101, 0],
+            "r": 100,
+            "mat": {
+                "albedo": [1, 1, 1],
+                "rough": 1,
+                "metal": 0,
+                "glass": 0,
+                "opacity": 1,
+                "emit": false
+            }
+        },
+        {
+            "type": "sphere",
+            "pos": [-101, 0, 0],
+            "r": 100,
+            "mat": {
+                "albedo": [1, 0, 0],
+                "rough": 1,
+                "metal": 0,
+                "glass": 0,
+                "opacity": 1,
+                "emit": false
+            }
+        },
+        {
+            "type": "sphere",
+            "pos": [101, 0, 0],
+            "r": 100,
+            "mat": {
+                "albedo": [0, 1, 0],
+                "rough": 1,
                 "metal": 0,
                 "glass": 0,
                 "opacity": 1,
@@ -66,12 +118,6 @@
             }
         }
     ],
-    "light": [
-        {
-            "pos": [-0.5, -1, 0.5],
-            "pwr": 1,
-            "color": [1, 1, 1]
-        }
-    ],
+    "light": [],
     "sky": [0, 0, 0]
 }

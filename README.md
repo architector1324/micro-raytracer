@@ -38,10 +38,114 @@ TBD...
         {
             "type": "sphere",
             "pos": [0, 0, 0],
-            "r": 0.5,
+            "r": 0.2,
+            "mat": {
+                "albedo": [1, 0.917647058824, 0.596078431372],
+                "rough": 0,
+                "metal": 0,
+                "glass": 0,
+                "opacity": 1,
+                "emit": true
+            }
+        },
+        {
+            "type": "sphere",
+            "pos": [0.5, 0, 0],
+            "r": 0.2,
             "mat": {
                 "albedo": [1, 1, 1],
-                "rough": 0.5,
+                "rough": 0,
+                "metal": 1,
+                "glass": 0,
+                "opacity": 1,
+                "emit": false
+            }
+        },
+        {
+            "type": "sphere",
+            "pos": [-0.25, -0.5, 0],
+            "r": 0.2,
+            "mat": {
+                "albedo": [1, 1, 1],
+                "rough": 0,
+                "metal": 0,
+                "glass": 0.2,
+                "opacity": 0,
+                "emit": false
+            }
+        },
+        {
+            "type": "sphere",
+            "pos": [-0.5, 0, 0],
+            "r": 0.2,
+            "mat": {
+                "albedo": [1, 1, 1],
+                "rough": 1,
+                "metal": 0,
+                "glass": 0,
+                "opacity": 1,
+                "emit": false
+            }
+        },
+        {
+            "type": "sphere",
+            "pos": [0, 0, -100.2],
+            "r": 100,
+            "mat": {
+                "albedo": [1, 1, 1],
+                "rough": 1,
+                "metal": 0,
+                "glass": 0,
+                "opacity": 1,
+                "emit": false
+            }
+        },
+        {
+            "type": "sphere",
+            "pos": [0, 0, 101.2],
+            "r": 100,
+            "mat": {
+                "albedo": [1, 1, 1],
+                "rough": 1,
+                "metal": 0,
+                "glass": 0,
+                "opacity": 1,
+                "emit": false
+            }
+        },
+        {
+            "type": "sphere",
+            "pos": [0, 101, 0],
+            "r": 100,
+            "mat": {
+                "albedo": [1, 1, 1],
+                "rough": 1,
+                "metal": 0,
+                "glass": 0,
+                "opacity": 1,
+                "emit": false
+            }
+        },
+        {
+            "type": "sphere",
+            "pos": [-101, 0, 0],
+            "r": 100,
+            "mat": {
+                "albedo": [1, 0, 0],
+                "rough": 1,
+                "metal": 0,
+                "glass": 0,
+                "opacity": 1,
+                "emit": false
+            }
+        },
+        {
+            "type": "sphere",
+            "pos": [101, 0, 0],
+            "r": 100,
+            "mat": {
+                "albedo": [0, 1, 0],
+                "rough": 1,
                 "metal": 0,
                 "glass": 0,
                 "opacity": 1,
@@ -49,23 +153,7 @@ TBD...
             }
         }
     ],
-    "light": [
-        {
-            "pos": [0, -1, -0.5],
-            "pwr": 0.5,
-            "color": [0, 1, 0]
-        },
-        {
-            "pos": [-0.5, -1, 0.5],
-            "pwr": 0.8,
-            "color": [1, 0, 0]
-        },
-        {
-            "pos": [0.5, -1, 0.5],
-            "pwr": 0.8,
-            "color": [0, 0, 1]
-        }
-    ],
+    "light": [],
     "sky": [0, 0, 0]
 }
 ```
@@ -75,17 +163,18 @@ TBD...
 {
     "res": [800, 600],
     "cam": {
-        "pos": [0, -1, 0],
+        "pos": [0, -2, 0.5],
         "dir": [0, 1, 0],
-        "fov": 90
+        "fov": 60,
+        "gamma": 0.42
     }
 }
 ```
 
-3. Finally, run following command:
+3. Finally, run following command (it will take a lot time, about 5 minutes):
 
 ```bash
-raytrace --scene scene.json --frame frame.json
+raytrace --scene scene.json --frame frame.json --sample 1024
 ```
 
 ![image](doc/out2.png)
