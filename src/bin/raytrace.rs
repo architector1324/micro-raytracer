@@ -49,6 +49,9 @@ struct CLI {
     #[arg(long, value_names = ["w", "h"], next_line_help = true, help = "Frame output image resolution")]
     res: Option<Vec<u16>>,
 
+    #[arg(long, next_line_help = true, help = "Output image SSAAx antialiasing")]
+    ssaa: Option<f32>,
+
     // scene builder
     #[arg(long, value_names = ["pos: <f32 f32 f32>", "dir: <f32 f32 f32>", "fov: <f32>", "gamma: <f32>", "exp: <f32>"], num_args = 1..,  allow_negative_numbers = true, next_line_help = true, help = "Add camera to the scene")]
     cam: Option<Vec<String>>,
@@ -98,6 +101,7 @@ struct Camera {
 #[derive(Serialize, Deserialize, Debug)]
 struct Frame {
     res: (u16, u16),
+    ssaa: f32,
     cam: Camera
 }
 
@@ -372,6 +376,7 @@ impl Default for Frame {
     fn default() -> Self {
         Frame {
             res: (800, 600),
+            ssaa: 1.0,
             cam: Camera::default()
         }
     }
@@ -594,8 +599,8 @@ impl RayTracer {
     }
 
     fn cast(coord: Vec2f, frame: &Frame) -> Ray {
-        let w = frame.res.0 as f32;
-        let h = frame.res.1 as f32;
+        let w = frame.res.0 as f32 * frame.ssaa;
+        let h = frame.res.1 as f32 * frame.ssaa;
 
         let aspect = w / h;
         let tan_fov = (frame.cam.fov / 2.0).to_radians().tan();
@@ -731,6 +736,10 @@ fn main() {
         );
     }
 
+    if let Some(ssaa) = cli.ssaa {
+        frame.ssaa = ssaa;
+    }
+
     if let Some(cam_args) = cli.cam {
         frame.cam = Camera::from(&cam_args);
     }
@@ -800,8 +809,11 @@ fn main() {
     }
 
     // raytrace
+    let nw = (frame.res.0 as f32 * frame.ssaa) as u32;
+    let nh = (frame.res.1 as f32 * frame.ssaa) as u32;
+
     let filename = cli.output.unwrap_or(std::path::PathBuf::from("out.png"));
-    let img: image::RgbImage = image::ImageBuffer::new(frame.res.0.into(), frame.res.1.into());
+    let img: image::RgbImage = image::ImageBuffer::new(nw, nh);
 
     let pool = threadpool::ThreadPool::new(cli.worker.unwrap_or(24));
 
@@ -810,8 +822,8 @@ fn main() {
     let frame_sync = std::sync::Arc::new(frame);
     let rt_sync = std::sync::Arc::new(rt);
 
-    for x in 0..frame_sync.res.0 {
-        for y in 0..frame_sync.res.1 {
+    for x in 0..nw {
+        for y in 0..nh {
             let img_mtx_c = std::sync::Arc::clone(&img_mtx);
             let rt_syc_c = std::sync::Arc::clone(&rt_sync);
             let scene_syc_c = std::sync::Arc::clone(&scene_sync);
@@ -838,5 +850,6 @@ fn main() {
     pool.join();
 
     // save output
-    img_mtx.lock().unwrap().save(filename).unwrap();
+    let out_img = image::imageops::resize(&img_mtx.lock().unwrap().to_owned(), frame_sync.res.0 as u32, frame_sync.res.1 as u32, image::imageops::FilterType::Lanczos3);
+    out_img.save(filename).unwrap();
 }

@@ -20,8 +20,8 @@ raytrace --obj sph r: 0.2 rough: 1 \
          --obj pln n: 1 0 0 pos: -1 0 0 albedo: 1 0 0 rough: 1 \
          --obj pln n: 0 -1 0 pos: 0 1 0 rough: 1 \
          --cam fov: 60 gamma: 0.7 exp: 0.25 \
-         --sample 1024 --bounce 256 \
-         --res 1920 1080
+         --bounce 256 --sample 1024 \
+         --res 1920 1080 --ssaa 2
 ```
 
 ## Build
@@ -64,6 +64,8 @@ Options:
           Frame description json input filename
       --res <w> <h>
           Frame output image resolution
+      --ssaa <SSAA>
+          Output image SSAAx antialiasing
       --cam <pos: <f32 f32 f32>> <dir: <f32 f32 f32>> <fov: <f32>> <gamma: <f32>> <exp: <f32>>...
           Add camera to the scene
       --obj [<<type: sphere(sph)|plane(pln)>> <param: <sphere: r: <f32>>|<plane: n: <f32 f32 f32>>> <pos: <f32 f32 f32>> <albedo: <f32 f32 f32>> <rough: <f32>> <metal: <f32>> <glass: <f32>> <opacity: <f32>> <emit>...]
@@ -220,6 +222,7 @@ raytrace --obj sphere r: 0.2 pos: -0.5 0.5 0.7 emit \
 ```json
 {
     "res": [800, 600],
+    "ssaa": 1,
     "cam": {
         "dir": [0, 1, 0],
         "exp": 0.58,
@@ -246,7 +249,7 @@ raytrace -v -d --obj sphere --light point: -0.5 -1 0.5
 ```
 
 ```json
-{"frame":{"cam":{"dir":[0.0,1.0,0.0],"exp":0.20000000298023224,"fov":90.0,"gamma":0.800000011920929,"pos":[0.0,-1.0,0.0]},"res":[800,600]},"rt":{"bounce":8,"loss":0.15000000596046448,"sample":16},"scene":{"light":[{"color":[1.0,1.0,1.0],"pos":[-0.5,-1.0,0.5],"pwr":0.5,"type":"point"}],"renderer":[{"mat":{"albedo":[1.0,1.0,1.0],"emit":false,"glass":0.0,"metal":0.0,"opacity":1.0,"rough":0.0},"pos":[0.0,0.0,0.0],"r":0.5,"type":"sphere"}],"sky":[0.0,0.0,0.0]}}
+{"frame":{"cam":{"dir":[0.0,1.0,0.0],"exp":0.20000000298023224,"fov":90.0,"gamma":0.800000011920929,"pos":[0.0,-1.0,0.0]},"res":[800,600],"ssaa":1.0},"rt":{"bounce":8,"loss":0.15000000596046448,"sample":16},"scene":{"light":[{"color":[1.0,1.0,1.0],"pos":[-0.5,-1.0,0.5],"pwr":0.5,"type":"point"}],"renderer":[{"mat":{"albedo":[1.0,1.0,1.0],"emit":false,"glass":0.0,"metal":0.0,"opacity":1.0,"rough":0.0},"pos":[0.0,0.0,0.0],"r":0.5,"type":"sphere"}],"sky":[0.0,0.0,0.0]}}
 ```
 
 2. With prettifier:
@@ -264,7 +267,8 @@ raytrace -v -d --pretty --obj sphere --light point: -0.5 -1 0.5
             "gamma": 0.800000011920929,
             "pos": [0, -1, 0]
         },
-        "res": [800, 600]
+        "res": [800, 600],
+        "ssaa": 1
     },
     "rt": {
         "bounce": 8,

@@ -15,6 +15,8 @@ for (( i=0; i < $frames ; i++ )) do
                    --obj pln pos: 0 0 -0.4 rough: 1 \
                    --cam exp: 0.5 \
                    --sample 256 -o ./frames/out$i.png
+                   --ssaa 2
+                
 done
 
 ffmpeg -framerate 60 -f image2 -i ./frames/out%d.png out.mp4
