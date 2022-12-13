@@ -1,4 +1,4 @@
-# Raytracing Microservice
+# Micro-RT
 
 Lightweight raytracing microservice written in [Rust](https://www.rust-lang.org/).
 
