@@ -100,8 +100,7 @@ raytrace --obj sphere --light point: -0.5 -1 0.5 --res 1280 720 -o final.ppm
 Let's make something interesting (it will take some time):
 
 ```bash
-raytrace --obj sphere r: 0.2 pos: -0.5 0.5 0.7 emit \
-         --obj sphere r: 0.2 pos: 0.5 0.5 0 albedo: 1 0.76 0.47 emit \
+raytrace --obj sphere r: 0.2 pos: 0.5 0.5 0 albedo: 1 0.76 0.47 emit \
          --obj sph r: 0.2 pos: -0.5 0 0 rough: 1 \
          --obj sph r: 0.2 pos: 0 0.5 0 albedo: 1 0 0 \
          --obj sph r: 0.2 pos: 0.5 0 0 metal: 1 \
@@ -205,14 +204,6 @@ raytrace --obj sphere r: 0.2 pos: -0.5 0.5 0.7 emit \
                 "albedo": [1, 0.76, 0.47],
                 "emit": true
             }
-        },
-        {
-            "type": "sphere",
-            "r": 0.2,
-            "mat": {
-                "emit": true
-            },
-            "pos": [-0.5, 0.5, 0.7]
         }
     ]
 }
