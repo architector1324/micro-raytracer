@@ -326,22 +326,27 @@ impl Ray {
         }
     }
 
-    fn refract(&self, rt:&RayTracer, obj: &Renderer) -> Ray {
+    fn refract(&self, rt:&RayTracer, obj: &Renderer) -> Option<Ray> {
         let hit = self.orig + self.dir * self.t;
         let norm = (obj.normal(hit) + Vec3f::rand(obj.mat.rough)).norm();
 
-        let eta = 1.0 - obj.mat.glass;
-        let k = 1.0 - eta.powi(2) * (1.0 - (norm * (-self.dir)).powi(2));
+        let eta = 1.0 + obj.mat.glass / 2.0;
+        let cos = -norm * self.dir;
 
-        let dir = (norm * (eta * (norm * (-self.dir)) + k.sqrt()) - (-self.dir) * eta).norm();
+        let k = 1.0 - eta.powi(2) * (1.0 - cos.powi(2));
+        if k < 0.0 {
+            return None
+        }
 
-        Ray {
+        let dir = self.dir * eta + norm * (cos * eta + k.sqrt());
+
+        Some(Ray {
             dir: dir,
-            orig: hit + dir * 0.001,
+            orig: hit + dir.norm() * 0.001,
             pwr: self.pwr * (1.0 - rt.loss.min(1.0)),
             t: 0.0,
             bounce: self.bounce + 1
-        }
+        })
     }
 }
 
@@ -681,11 +686,14 @@ impl RayTracer {
         // indirect light
         let mut r_ray = ray.reflect(self, hit_obj);
 
-        // 20% chance to reflect
-        if hit_obj.mat.opacity != 1.0 && rand::thread_rng().gen_bool(0.8) {
+        // 15% chance to reflect
+        if hit_obj.mat.opacity != 1.0 && rand::thread_rng().gen_bool(0.85) {
             let mut r_tmp = ray.clone();
             r_tmp.t = hit.unwrap().2;
-            r_ray = r_tmp.refract(self, hit_obj);
+
+            if let Some(r) = r_tmp.refract(self, hit_obj) {
+                r_ray = r;
+            }
         }
 
         let path = self.pathtrace(scene, &mut r_ray);

@@ -80,18 +80,19 @@ raytrace --obj sphere --light point: -0.5 -1 0.5 --res 1280 720 -o final.ppm
 Let's make something interesting (it will take some time):
 
 ```bash
-raytrace --obj sphere r: 0.2 pos: 0 0 0.7 albedo: 1 0.92 0.6 emit \
-         --obj sphere r: 0.2 pos: 0 0.5 0 albedo: 1 0 0 \
-         --obj sphere r: 0.2 pos: 0.5 0 0 metal: 1 \
-         --obj sphere r: 0.2 pos: -0.25 -0.5 0 glass: 0.2 opacity: 0 \
-         --obj sphere r: 0.2 pos: -0.5 0 0 rough: 1 \
-         --obj sphere r: 100 pos: 0 0 -100.2 rough: 1 \
-         --obj sphere r: 100 pos: 0 0 101.2 rough: 1 \
-         --obj sphere r: 100 pos: 0 101 0 rough: 1 \
-         --obj sphere r: 100 pos: -101 0 0 albedo: 1 0 0 rough: 1 \
-         --obj sphere r: 100 pos: 101 0 0 albedo: 0 1 0 rough: 1 \
-         --cam pos: 0 -2 0.5 fov: 60 gamma: 0.4 exp: 0.6 \
-         --sample 1024
+raytrace --obj sphere r: 0.2 pos: -0.5 0.5 0.7 emit \
+         --obj sphere r: 0.2 pos: 0.5 0.5 0 albedo: 1 0.76 0.47 emit \
+         --obj sph r: 0.2 pos: -0.5 0 0 rough: 1 \
+         --obj sph r: 0.2 pos: 0 0.5 0 albedo: 1 0 0 \
+         --obj sph r: 0.2 pos: 0.5 0 0 metal: 1 \
+         --obj sph r: 0.2 pos: -0.15 -0.5 0 glass: 0.08 opacity: 0 \
+         --obj pln pos: 0 0 -0.201 rough: 1 \
+         --obj pln n: 0 0 -1 pos: 0 0 1 rough: 1 \
+         --obj pln n: -1 0 0 pos: 1 0 0 albedo: 0 1 0 rough: 1 \
+         --obj pln n: 1 0 0 pos: -1 0 0 albedo: 1 0 0 rough: 1 \
+         --obj pln n: 0 -1 0 pos: 0 1 0 rough: 1 \
+         --cam pos: 0 -1.2 0.1 fov: 60 gamma: 0.42 exp: 0.58 \
+         --bounce 256 --sample 1024
 ```
 
 ![image](doc/out2.png)
@@ -102,12 +103,62 @@ raytrace --obj sphere r: 0.2 pos: 0 0 0.7 albedo: 1 0.92 0.6 emit \
 {
     "renderer": [
         {
+            "type": "plane",
+            "n": [0, -1, 0],
+            "pos": [0, 1, 0],
+            "mat": {
+                "rough": 1
+            }
+        },
+        {
+            "type": "plane",
+            "n": [1, 0, 0],
+            "pos": [-1, 0, 0],
+            "mat": {
+                "albedo": [1, 0, 0],
+                "rough": 1
+            }
+        },
+        {
+            "type": "plane",
+            "n": [-1, 0, 0],
+            "pos": [1, 0, 0],
+            "mat": {
+                "albedo": [0, 1, 0],
+                "rough": 1
+            }
+        },
+        {
+            "type": "plane",
+            "n": [0, 0, -1],
+            "pos": [0, 0, 1],
+            "mat": {
+                "rough": 1
+            }
+        },
+        {
+            "type": "plane",
+            "n": [0, 0, 1],
+            "pos": [0, 0, -0.2],
+            "mat": {
+                "rough": 1
+            }
+        },
+        {
             "type": "sphere",
             "r": 0.2,
-            "pos": [0, 0, 0.7],
+            "pos": [-0.15, -0.5, 0],
             "mat": {
-                "albedo": [1, 0.917647058824, 0.596078431372],
-                "emit": true
+                "glass": 0.08,
+                "opacity": 0
+            }
+        },
+        {
+            "type": "sphere",
+            "r": 0.2,
+            "pos": [0.5, 0, 0],
+            "mat": {
+                "metal": 1
             }
         },
         {
@@ -120,73 +171,30 @@ raytrace --obj sphere r: 0.2 pos: 0 0 0.7 albedo: 1 0.92 0.6 emit \
         },
         {
             "type": "sphere",
-            "pos": [0.5, 0, 0],
             "r": 0.2,
-            "mat": {
-                "metal": 1
-            }
-        },
-        {
-            "type": "sphere",
-            "pos": [-0.25, -0.5, 0],
-            "r": 0.2,
-            "mat": {
-                "glass": 0.2,
-                "opacity": 0
-            }
-        },
-        {
-            "type": "sphere",
             "pos": [-0.5, 0, 0],
+            "mat": {
+                "rough": 1
+            }
+        },
+        {
+            "type": "sphere",
+            "r": 0.2,
+            "pos": [0.5, 0.5, 0],
+            "mat": {
+                "albedo": [1, 0.76, 0.47],
+                "emit": true
+            }
+        },
+        {
+            "type": "sphere",
             "r": 0.2,
             "mat": {
-                "rough": 1
-            }
-        },
-        {
-            "type": "sphere",
-            "pos": [0, 0, -100.2],
-            "r": 100,
-            "mat": {
-                "rough": 1
-            }
-        },
-        {
-            "type": "sphere",
-            "pos": [0, 0, 101.2],
-            "r": 100,
-            "mat": {
-                "rough": 1
-            }
-        },
-        {
-            "type": "sphere",
-            "pos": [0, 101, 0],
-            "r": 100,
-            "mat": {
-                "rough": 1
-            }
-        },
-        {
-            "type": "sphere",
-            "pos": [-101, 0, 0],
-            "r": 100,
-            "mat": {
-                "albedo": [1, 0, 0],
-                "rough": 1
-            }
-        },
-        {
-            "type": "sphere",
-            "pos": [101, 0, 0],
-            "r": 100,
-            "mat": {
-                "albedo": [0, 1, 0],
-                "rough": 1
-            }
+                "emit": true
+            },
+            "pos": [-0.5, 0.5, 0.7]
         }
-    ],
-    "light": []
+    ]
 }
 ```
 
@@ -195,11 +203,11 @@ raytrace --obj sphere r: 0.2 pos: 0 0 0.7 albedo: 1 0.92 0.6 emit \
 {
     "res": [800, 600],
     "cam": {
-        "pos": [0, -2, 0.5],
         "dir": [0, 1, 0],
+        "exp": 0.58,
         "fov": 60,
-        "gamma": 0.4,
-        "exp": 0.6
+        "gamma": 0.42,
+        "pos": [0, -1.2, 0.1]
     }
 }
 ```

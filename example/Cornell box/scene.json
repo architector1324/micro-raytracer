@@ -1,12 +1,62 @@
 {
     "renderer": [
         {
+            "type": "plane",
+            "n": [0, -1, 0],
+            "pos": [0, 1, 0],
+            "mat": {
+                "rough": 1
+            }
+        },
+        {
+            "type": "plane",
+            "n": [1, 0, 0],
+            "pos": [-1, 0, 0],
+            "mat": {
+                "albedo": [1, 0, 0],
+                "rough": 1
+            }
+        },
+        {
+            "type": "plane",
+            "n": [-1, 0, 0],
+            "pos": [1, 0, 0],
+            "mat": {
+                "albedo": [0, 1, 0],
+                "rough": 1
+            }
+        },
+        {
+            "type": "plane",
+            "n": [0, 0, -1],
+            "pos": [0, 0, 1],
+            "mat": {
+                "rough": 1
+            }
+        },
+        {
+            "type": "plane",
+            "n": [0, 0, 1],
+            "pos": [0, 0, -0.2],
+            "mat": {
+                "rough": 1
+            }
+        },
+        {
             "type": "sphere",
             "r": 0.2,
-            "pos": [0, 0, 0.7],
+            "pos": [-0.15, -0.5, 0],
             "mat": {
-                "albedo": [1, 0.917647058824, 0.596078431372],
-                "emit": true
+                "glass": 0.08,
+                "opacity": 0
+            }
+        },
+        {
+            "type": "sphere",
+            "r": 0.2,
+            "pos": [0.5, 0, 0],
+            "mat": {
+                "metal": 1
             }
         },
         {
@@ -19,71 +69,28 @@
         },
         {
             "type": "sphere",
-            "pos": [0.5, 0, 0],
             "r": 0.2,
-            "mat": {
-                "metal": 1
-            }
-        },
-        {
-            "type": "sphere",
-            "pos": [-0.25, -0.5, 0],
-            "r": 0.2,
-            "mat": {
-                "glass": 0.2,
-                "opacity": 0
-            }
-        },
-        {
-            "type": "sphere",
             "pos": [-0.5, 0, 0],
+            "mat": {
+                "rough": 1
+            }
+        },
+        {
+            "type": "sphere",
+            "r": 0.2,
+            "pos": [0.5, 0.5, 0],
+            "mat": {
+                "albedo": [1, 0.76, 0.47],
+                "emit": true
+            }
+        },
+        {
+            "type": "sphere",
             "r": 0.2,
             "mat": {
-                "rough": 1
-            }
-        },
-        {
-            "type": "sphere",
-            "pos": [0, 0, -100.2],
-            "r": 100,
-            "mat": {
-                "rough": 1
-            }
-        },
-        {
-            "type": "sphere",
-            "pos": [0, 0, 101.2],
-            "r": 100,
-            "mat": {
-                "rough": 1
-            }
-        },
-        {
-            "type": "sphere",
-            "pos": [0, 101, 0],
-            "r": 100,
-            "mat": {
-                "rough": 1
-            }
-        },
-        {
-            "type": "sphere",
-            "pos": [-101, 0, 0],
-            "r": 100,
-            "mat": {
-                "albedo": [1, 0, 0],
-                "rough": 1
-            }
-        },
-        {
-            "type": "sphere",
-            "pos": [101, 0, 0],
-            "r": 100,
-            "mat": {
-                "albedo": [0, 1, 0],
-                "rough": 1
-            }
+                "emit": true
+            },
+            "pos": [-0.5, 0.5, 0.7]
         }
-    ],
-    "light": []
+    ]
 }
