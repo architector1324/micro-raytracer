@@ -6,6 +6,24 @@ The main idea is to use flags or [json](https://www.json.org/json-en.html) for g
 
 It's something like [Zenity](https://github.com/GNOME/zenity), that provides you to create simple UI in terminal.
 
+![image](doc/intro.jpg)
+
+```bash
+raytrace --obj sph r: 0.2 rough: 1 \
+         --obj sph r: 0.1 pos: -0.4 0 -0.1 glass: 0.1 opacity: 0 \
+         --obj sph r: 0.4 pos: 0.5 0.5 0.2 albedo: 0 0 1 rough: 0.1 \
+         --obj sph r: 0.3 pos: -0.5 0.5 0.1 metal: 1 \
+         --obj sph r: 0.08 pos: 0.3 0.18 -0.12 emit \
+         --obj pln pos: 0 0 -0.2 rough: 1 \
+         --obj pln n: 0 0 -1 pos: 0 0 1 emit \
+         --obj pln n: -1 0 0 pos: 1 0 0 albedo: 0 1 0 rough: 1 \
+         --obj pln n: 1 0 0 pos: -1 0 0 albedo: 1 0 0 rough: 1 \
+         --obj pln n: 0 -1 0 pos: 0 1 0 rough: 1 \
+         --cam fov: 60 gamma: 0.7 exp: 0.25 \
+         --sample 1024 --bounce 256 \
+         --res 1920 1080
+```
+
 ## Build
 Build statically for [linux](https://en.wikipedia.org/wiki/Linux) using [musl](https://musl.libc.org/). This executable may run on any linux system without any additional libs.
 
