@@ -4,9 +4,24 @@ use rand::Rng;
 use serde_json::json;
 
 
-// extra;
+// extra
 trait ParseFromStrIter<'a> {
     fn parse<I: Iterator<Item = &'a String>>(it: &mut I) -> Self;
+}
+
+trait ParseFromArgs<T: From<Vec<String>>> {
+    fn parse_args(args: &Vec<String>, pat: &[&str], out: &mut Option<Vec<T>>) {
+        let args_rev: Vec<_> = args.iter().rev().map(|v| String::from(v)).collect();
+        let objs = args_rev.split_inclusive(|t| pat.contains(&t.as_str())).map(|v| v.iter().rev());
+
+        if out.is_none() {
+            *out = Some(vec![]);
+        }
+
+        for obj in objs {
+            out.as_mut().unwrap().push(T::from(obj.map(|v| String::from(v)).collect::<Vec<_>>()));
+        }
+    }
 }
 
 // cli
@@ -75,7 +90,7 @@ struct RayTracer {
     loss: f32,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 struct Vec2f (f32, f32);
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 struct Vec3f (f32, f32, f32);
@@ -478,14 +493,14 @@ impl Renderer {
 
     fn normal(&self, hit: Vec3f) -> Vec3f {
         match self.kind {
-            RendererKind::Sphere{r: _} => (hit - self.pos).norm(),
+            RendererKind::Sphere{..} => (hit - self.pos).norm(),
             RendererKind::Plane{n} => n.norm()
         }
     }
 }
 
-impl From<&Vec<String>> for Camera {
-    fn from(args: &Vec<String>) -> Self {
+impl From<Vec<String>> for Camera {
+    fn from(args: Vec<String>) -> Self {
         let mut it = args.iter();
         let mut cam = Camera::default();
 
@@ -503,8 +518,8 @@ impl From<&Vec<String>> for Camera {
     }
 }
 
-impl From<&Vec<String>> for Light {
-    fn from(args: &Vec<String>) -> Self {
+impl From<Vec<String>> for Light {
+    fn from(args: Vec<String>) -> Self {
         let t = &args[0];
         let mut it = args.iter();
 
@@ -556,8 +571,8 @@ impl From<&Vec<String>> for Light {
     }
 }
 
-impl From<&Vec<String>> for Renderer {
-    fn from(args: &Vec<String>) -> Self {
+impl From<Vec<String>> for Renderer {
+    fn from(args: Vec<String>) -> Self {
         let t = &args[0];
         let mut it = args.iter().skip(1);
 
@@ -613,6 +628,9 @@ impl From<&Vec<String>> for Renderer {
         obj
     }
 }
+
+impl ParseFromArgs<Renderer> for Scene {}
+impl ParseFromArgs<Light> for Scene {}
 
 impl RayTracer {
     fn closest_hit<'a>(scene: &'a Scene, ray: &'a Ray) -> Option<RayHit<'a>> {
@@ -678,7 +696,7 @@ impl RayTracer {
 
         for light in lights {
             let l = match light.kind {
-                LightKind::Point { pos } => pos - Vec3f::from(&hit.ray.0),
+                LightKind::Point {pos} => pos - Vec3f::from(&hit.ray.0),
                 LightKind::Dir {dir} => -dir.norm()
             };
 
@@ -745,7 +763,6 @@ impl RayTracer {
     }
 }
 
-
 fn main() {
     // parse cli
     let cli = CLI::parse();
@@ -770,7 +787,7 @@ fn main() {
     }
 
     if let Some(cam_args) = cli.cam {
-        frame.cam = Camera::from(&cam_args);
+        frame.cam = Camera::from(cam_args);
     }
 
     // get scene
@@ -781,30 +798,12 @@ fn main() {
         scene = serde_json::from_str(scene_json.as_str()).unwrap();
     }
 
-    if let Some(objs_flat) = cli.obj {
-        let args_rev: Vec<_> = objs_flat.iter().rev().map(|v| String::from(v)).collect();
-        let objs = args_rev.split_inclusive(|t| ["sphere", "sph", "plane", "pln"].contains(&t.as_str())).map(|v| v.iter().rev());
-
-        if scene.renderer.is_none() {
-            scene.renderer = Some(vec![]);
-        }
-
-        for obj in objs {
-            scene.renderer.as_mut().unwrap().push(Renderer::from(&obj.map(|v| String::from(v)).collect()));
-        }
+    if let Some(objs_args) = cli.obj {
+        Scene::parse_args(&objs_args, &["sphere", "sph", "plane", "pln"], &mut scene.renderer);
     }
 
-    if let Some(lights_flat) = cli.light {
-        let args_rev: Vec<_> = lights_flat.iter().rev().map(|v| String::from(v)).collect();
-        let objs = args_rev.split_inclusive(|t| ["pt:", "point:", "dir:"].contains(&t.as_str())).map(|v| v.iter().rev());
-
-        if scene.light.is_none() {
-            scene.light = Some(vec![]);
-        }
-
-        for obj in objs {
-            scene.light.as_mut().unwrap().push(Light::from(&obj.map(|v| String::from(v)).collect()));
-        }
+    if let Some(lights_args) = cli.light {
+        Scene::parse_args(&lights_args, &["pt:", "point:", "dir:"], &mut scene.light);
     }
 
     if let Some(sky) = cli.sky {
