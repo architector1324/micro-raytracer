@@ -56,7 +56,7 @@ struct CLI {
     #[arg(long, value_names = ["pos: <f32 f32 f32>", "dir: <f32 f32 f32>", "fov: <f32>", "gamma: <f32>", "exp: <f32>"], num_args = 1..,  allow_negative_numbers = true, next_line_help = true, help = "Add camera to the scene")]
     cam: Option<Vec<String>>,
 
-    #[arg(long, value_names = ["<type: sphere(sph)|plane(pln)>", "param: <sphere: r: <f32>>|<plane: n: <f32 f32 f32>>", "pos: <f32 f32 f32>" , "albedo: <f32 f32 f32>", "rough: <f32>", "metal: <f32>", "glass: <f32>", "opacity: <f32>", "emit"], num_args = 0.., action = clap::ArgAction::Append, allow_negative_numbers = true, next_line_help = true, help = "Add renderer to the scene")]
+    #[arg(long, value_names = ["<type: sphere(sph)|plane(pln)>", "param: <sphere: r: <f32>>|<plane: n: <f32 f32 f32>>", "pos: <f32 f32 f32>" , "albedo: <f32 f32 f32>", "rough: <f32>", "metal: <f32>", "glass: <f32>", "opacity: <f32>", "emit: <f32>"], num_args = 0.., action = clap::ArgAction::Append, allow_negative_numbers = true, next_line_help = true, help = "Add renderer to the scene")]
     obj: Option<Vec<String>>,
 
     #[arg(long, value_names = ["param: <point(pt): <f32 f32 f32>>|<dir: <f32 f32 f32>>", "pwr: <f32>", "col: <f32 f32 f32>"], num_args = 0.., action = clap::ArgAction::Append, allow_negative_numbers = true, next_line_help = true, help = "Add light source to the scene")]
@@ -120,7 +120,7 @@ struct Material {
     metal: f32,
     glass: f32,
     opacity: f32,
-    emit: bool
+    emit: f32
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -422,7 +422,7 @@ impl Default for Material {
             metal: 0.0,
             glass: 0.0,
             opacity: 1.0,
-            emit: false
+            emit: 0.0
         }
     }
 }
@@ -602,7 +602,7 @@ impl From<&Vec<String>> for Renderer {
                 "metal:" => obj.mat.metal = <f32>::parse(&mut it),
                 "glass:" => obj.mat.glass = <f32>::parse(&mut it),
                 "opacity:" => obj.mat.opacity = <f32>::parse(&mut it),
-                "emit" => obj.mat.emit = true,
+                "emit:" => obj.mat.emit = <f32>::parse(&mut it),
                 _ => {
                     if !is_type_param {
                         panic!("`{}` param for `{}` is unxpected!", param, t);
@@ -725,7 +725,7 @@ impl RayTracer {
         // intersect
         if let Some(hit) = RayTracer::closest_hit(scene, ray) {
             // emit
-            if hit.obj.mat.emit {
+            if rand::thread_rng().gen_bool(hit.obj.mat.emit.into()) {
                 return hit.obj.mat.albedo;
             }
 

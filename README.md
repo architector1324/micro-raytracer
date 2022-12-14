@@ -13,9 +13,9 @@ raytrace --obj sph r: 0.2 rough: 1 \
          --obj sph r: 0.1 pos: -0.4 0 -0.1 glass: 0.1 opacity: 0 \
          --obj sph r: 0.4 pos: 0.5 0.5 0.2 albedo: 0 0 1 rough: 0.1 \
          --obj sph r: 0.3 pos: -0.5 0.5 0.1 metal: 1 \
-         --obj sph r: 0.08 pos: 0.3 0.18 -0.12 emit \
+         --obj sph r: 0.08 pos: 0.3 0.18 -0.12 emit: 1.0 \
          --obj pln pos: 0 0 -0.2 rough: 1 \
-         --obj pln n: 0 0 -1 pos: 0 0 1 emit \
+         --obj pln n: 0 0 -1 pos: 0 0 1 emit: 1.0 \
          --obj pln n: -1 0 0 pos: 1 0 0 albedo: 0 1 0 rough: 1 \
          --obj pln n: 1 0 0 pos: -1 0 0 albedo: 1 0 0 rough: 1 \
          --obj pln n: 0 -1 0 pos: 0 1 0 rough: 1 \
@@ -68,7 +68,7 @@ Options:
           Output image SSAAx antialiasing
       --cam <pos: <f32 f32 f32>> <dir: <f32 f32 f32>> <fov: <f32>> <gamma: <f32>> <exp: <f32>>...
           Add camera to the scene
-      --obj [<<type: sphere(sph)|plane(pln)>> <param: <sphere: r: <f32>>|<plane: n: <f32 f32 f32>>> <pos: <f32 f32 f32>> <albedo: <f32 f32 f32>> <rough: <f32>> <metal: <f32>> <glass: <f32>> <opacity: <f32>> <emit>...]
+      --obj [<<type: sphere(sph)|plane(pln)>> <param: <sphere: r: <f32>>|<plane: n: <f32 f32 f32>>> <pos: <f32 f32 f32>> <albedo: <f32 f32 f32>> <rough: <f32>> <metal: <f32>> <glass: <f32>> <opacity: <f32>> <emit: <f32>>...]
           Add renderer to the scene
       --light [<param: <point(pt): <f32 f32 f32>>|<dir: <f32 f32 f32>>> <pwr: <f32>> <col: <f32 f32 f32>>...]
           Add light source to the scene
@@ -100,7 +100,7 @@ raytrace --obj sphere --light point: -0.5 -1 0.5 --res 1280 720 -o final.ppm
 Let's make something interesting (it will take some time):
 
 ```bash
-raytrace --obj sphere r: 0.2 pos: 0.5 0.5 0 albedo: 1 0.76 0.47 emit \
+raytrace --obj sph r: 0.2 pos: 0.5 0.5 0 albedo: 1 0.76 0.47 emit: 1.0 \
          --obj sph r: 0.2 pos: -0.5 0 0 rough: 1 \
          --obj sph r: 0.2 pos: 0 0.5 0 albedo: 1 0 0 \
          --obj sph r: 0.2 pos: 0.5 0 0 metal: 1 \
@@ -202,7 +202,7 @@ raytrace --obj sphere r: 0.2 pos: 0.5 0.5 0 albedo: 1 0.76 0.47 emit \
             "pos": [0.5, 0.5, 0],
             "mat": {
                 "albedo": [1, 0.76, 0.47],
-                "emit": true
+                "emit": 1
             }
         }
     ]
@@ -240,7 +240,7 @@ raytrace -v -d --obj sphere --light point: -0.5 -1 0.5
 ```
 
 ```json
-{"frame":{"cam":{"dir":[0.0,1.0,0.0],"exp":0.20000000298023224,"fov":90.0,"gamma":0.800000011920929,"pos":[0.0,-1.0,0.0]},"res":[800,600],"ssaa":1.0},"rt":{"bounce":8,"loss":0.15000000596046448,"sample":16},"scene":{"light":[{"color":[1.0,1.0,1.0],"pos":[-0.5,-1.0,0.5],"pwr":0.5,"type":"point"}],"renderer":[{"mat":{"albedo":[1.0,1.0,1.0],"emit":false,"glass":0.0,"metal":0.0,"opacity":1.0,"rough":0.0},"pos":[0.0,0.0,0.0],"r":0.5,"type":"sphere"}],"sky":[0.0,0.0,0.0]}}
+{"frame":{"cam":{"dir":[0.0,1.0,0.0],"exp":0.20000000298023224,"fov":90.0,"gamma":0.800000011920929,"pos":[0.0,-1.0,0.0]},"res":[800,600],"ssaa":1.0},"rt":{"bounce":8,"loss":0.15000000596046448,"sample":16},"scene":{"light":[{"color":[1.0,1.0,1.0],"pos":[-0.5,-1.0,0.5],"pwr":0.5,"type":"point"}],"renderer":[{"mat":{"albedo":[1.0,1.0,1.0],"emit":0,"glass":0.0,"metal":0.0,"opacity":1.0,"rough":0.0},"pos":[0.0,0.0,0.0],"r":0.5,"type":"sphere"}],"sky":[0.0,0.0,0.0]}}
 ```
 
 2. With prettifier:
@@ -279,7 +279,7 @@ raytrace -v -d --pretty --obj sphere --light point: -0.5 -1 0.5
             {
                 "mat": {
                     "albedo": [1, 1, 1],
-                    "emit": false,
+                    "emit": 0,
                     "glass": 0,
                     "metal": 0,
                     "opacity": 1,
