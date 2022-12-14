@@ -80,6 +80,7 @@ struct Vec2f (f32, f32);
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 struct Vec3f (f32, f32, f32);
 type Mat3f = [f32; 9];
+
 #[derive(Debug, Clone)]
 struct Ray {
     orig: Vec3f,
@@ -87,6 +88,12 @@ struct Ray {
     t: f32,
     pwr: f32,
     bounce: usize
+}
+
+struct RayHit<'a> {
+    obj: &'a Renderer,
+    ray: (Ray, Ray),
+    norm: (Vec3f, Vec3f)
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -189,6 +196,17 @@ impl Vec3f {
         self - n * (2.0 * (self * n))
     }
 
+    fn refract(self, eta: f32, n: Vec3f) -> Option<Vec3f> {
+        let cos = -n * self;
+
+        let k = 1.0 - eta.powi(2) * (1.0 - cos.powi(2));
+        if k < 0.0 {
+            return None
+        }
+
+        Some(self * eta + n * (cos * eta + k.sqrt()))
+    }
+
     fn hadam(self, rhs: Vec3f) -> Vec3f {
         Vec3f(self.0 * rhs.0, self.1 * rhs.1, self.2 * rhs.2)
     }
@@ -209,6 +227,12 @@ impl Vec3f {
 impl From<Vec3f> for [f32; 3] {
     fn from(v: Vec3f) -> Self {
         [v.0, v.1, v.2]
+    }
+}
+
+impl <'a> From<&'a Ray> for Vec3f {
+    fn from(ray: &'a Ray) -> Self {
+        ray.orig + ray.dir * ray.t
     }
 }
 
@@ -314,43 +338,41 @@ impl <'a> ParseFromStrIter<'a> for f32 {
     }
 }
 
-impl Ray {
-    fn reflect(&self, rt: &RayTracer, obj: &Renderer) -> Ray {
-        let hit = self.orig + self.dir * self.t;
-        let norm = (obj.normal(hit) + Vec3f::rand(obj.mat.rough)).norm();
-
-        let dir = self.dir.reflect(norm);
-
-        Ray {
-            dir: dir,
-            orig: hit + dir * 0.001,
-            pwr: self.pwr * (1.0 - rt.loss.min(1.0)),
-            t: 0.0,
-            bounce: self.bounce + 1
+impl Default for Ray {
+    fn default() -> Self {
+        Ray{
+            orig: Vec3f::zero(),
+            dir: Vec3f::zero(),
+            pwr: 1.0,
+            bounce: 0,
+            t: 0.0
         }
     }
+}
 
-    fn refract(&self, rt:&RayTracer, obj: &Renderer) -> Option<Ray> {
-        let hit = self.orig + self.dir * self.t;
-        let norm = (obj.normal(hit) + Vec3f::rand(obj.mat.rough)).norm();
+impl Ray {
+    fn cast(orig: Vec3f, dir: Vec3f, pwr: f32, bounce: usize) -> Ray {
+        Ray{orig: orig + dir * 0.001, dir: dir, pwr: pwr, bounce: bounce, t: 0.0}
+    }
 
-        let eta = 1.0 + obj.mat.glass / 2.0;
-        let cos = -norm * self.dir;
+    fn cast_default(orig: Vec3f, dir: Vec3f) -> Ray {
+        Ray{orig: orig + dir * 0.001, dir: dir, ..Default::default()}
+    }
 
-        let k = 1.0 - eta.powi(2) * (1.0 - cos.powi(2));
-        if k < 0.0 {
-            return None
-        }
+    fn reflect(&self, rt: &RayTracer, hit: &RayHit) -> Ray {
+        let norm = (hit.norm.0 + Vec3f::rand(hit.obj.mat.rough)).norm();
+        let dir = self.dir.reflect(norm).norm();
 
-        let dir = self.dir * eta + norm * (cos * eta + k.sqrt());
+        Ray::cast(self.into(), dir, self.pwr * (1.0 - rt.loss.min(1.0)), self.bounce + 1)
+    }
 
-        Some(Ray {
-            dir: dir,
-            orig: hit + dir.norm() * 0.001,
-            pwr: self.pwr * (1.0 - rt.loss.min(1.0)),
-            t: 0.0,
-            bounce: self.bounce + 1
-        })
+    fn refract(&self, rt:&RayTracer, hit: &RayHit) -> Option<Ray> {
+        let norm = (hit.norm.1 + Vec3f::rand(hit.obj.mat.rough)).norm();
+
+        let eta = 1.0 + hit.obj.mat.glass / 2.0;
+        let dir = self.dir.refract(eta, norm)?.norm();
+
+        Some(Ray::cast(self.into(), dir, self.pwr * (1.0 - rt.loss.min(1.0)), self.bounce + 1))
     }
 }
 
@@ -593,9 +615,21 @@ impl From<&Vec<String>> for Renderer {
 }
 
 impl RayTracer {
-    fn find_closest_intersection<'a>(scene: &'a Scene, ray: &Ray) -> Option<(&'a Renderer, f32, f32)> {
+    fn closest_hit<'a>(scene: &'a Scene, ray: &'a Ray) -> Option<RayHit<'a>> {
         let hits = scene.renderer.as_deref()?.iter().map(|obj| (obj, obj.intersect(&ray))).filter(|p| p.1.is_some()).map(|p| (p.0, p.1.unwrap().0, p.1.unwrap().1));
-        hits.min_by(|max, p| max.1.total_cmp(&p.1))
+
+        hits.min_by(|max, p| max.1.total_cmp(&p.1)).and_then(|v| {
+            let r0 = Ray {t: v.1, ..ray.clone()};
+            let r1 = Ray {t: v.2, ..ray.clone()};
+
+            Some(
+                RayHit {
+                    obj: v.0,
+                    norm: (v.0.normal((&r0).into()), v.0.normal((&r1).into())),
+                    ray: (r0, r1),
+                }
+            )
+        })
     }
 
     fn cast(coord: Vec2f, frame: &Frame) -> Ray {
@@ -634,85 +668,80 @@ impl RayTracer {
         ];
 
         // cast
-        Ray {
-            orig: frame.cam.pos,
-            dir: rot_x * (rot_z * dir), // rot_x * (rot_y * (rot_z * dir)),
-            t: 0.0,
-            pwr: 1.0,
-            bounce: 0
-        }
+        Ray::cast_default(frame.cam.pos, rot_x * (rot_z * dir))
     }
 
-    fn pathtrace<'a>(&self, scene: &'a Scene, ray: &mut Ray) -> (Vec3f, Option<(&'a Renderer, f32, f32)>) {
+    fn pathtrace_direct_light(scene: &Scene, hit: &RayHit) -> Option<Vec3f> {
+        let mut col = Vec3f::zero();
+
+        let lights = scene.light.as_ref()?;
+
+        for light in lights {
+            let l = match light.kind {
+                LightKind::Point { pos } => pos - Vec3f::from(&hit.ray.0),
+                LightKind::Dir {dir} => -dir.norm()
+            };
+
+            let ray_l = Ray::cast_default((&hit.ray.0).into(), l.norm());
+
+            if let Some(_) = RayTracer::closest_hit(scene, &ray_l) {
+                continue;
+            }
+
+            let diff = (l.norm() * hit.norm.0).max(0.0);
+            let spec = (hit.ray.0.dir * l.norm().reflect(hit.norm.0)).max(0.0).powi(32) * (1.0 - hit.obj.mat.rough);
+
+            let o_col = hit.obj.mat.albedo * (1.0 - hit.obj.mat.metal);
+
+            // col += ((o_col * diff).hadam(light.color) + spec) * light.pwr / (l.mag().powi(2));
+            col += ((o_col * diff).hadam(light.color) + spec) * light.pwr;
+        }
+
+        Some(col * hit.ray.0.pwr)
+    }
+
+    fn pathtrace_indirect_light(&self, scene: &Scene, hit: &RayHit) -> Vec3f {
+        let mut next_ray = hit.ray.0.reflect(self, hit);
+
+        // 15% chance to reflect for transparent material
+        if rand::thread_rng().gen_bool((1.0 - hit.obj.mat.opacity).min(0.85).into()) {
+            if let Some(r) = hit.ray.1.refract(self, hit) {
+                next_ray = r;
+            }
+        }
+
+        let next_col = self.pathtrace(scene, &mut next_ray);
+        let col = (next_col + hit.obj.mat.albedo.hadam(next_col)) / 2.0;
+
+        col * next_ray.pwr
+    }
+
+    fn pathtrace<'a>(&self, scene: &'a Scene, ray: &Ray) -> Vec3f {
         // check bounce
         if ray.bounce > self.bounce {
-            return (scene.sky, None)
+            return scene.sky
         }
 
         // intersect
-        let hit = RayTracer::find_closest_intersection(scene, ray);
-        if let None = hit {
-            return (scene.sky, None)
-        }
-
-        ray.t = hit.unwrap().1;
-
-        let hit_obj = hit.unwrap().0;
-        let o_col = hit_obj.mat.albedo * hit_obj.mat.opacity * (1.0 - hit_obj.mat.metal);
-
-        // emit
-        if hit_obj.mat.emit {
-            return (hit_obj.mat.albedo, hit)
-        }
-
-        let hit_p = ray.orig + ray.dir * ray.t;
-        let n = hit_obj.normal(hit_p);
-
-        // direct light
-        let mut l_col = Vec3f::zero();
-
-        if let Some(lights) = scene.light.as_ref() {
-            for light in lights {
-                let l = match light.kind {
-                    LightKind::Point { pos } => pos - hit_p,
-                    LightKind::Dir {dir} => -dir.norm()
-                };
-
-                if let None = RayTracer::find_closest_intersection(scene, &Ray{orig: hit_p + l.norm() * 0.001, dir: l.norm(), pwr:0.0, t:0.0, bounce:0}) {
-                    let diff = (l.norm() * n).max(0.0);
-                    let spec = (ray.dir * l.norm().reflect(n)).max(0.0).powi(32) * (1.0 - hit_obj.mat.rough);
-    
-                    // l_col += ((o_col * diff).hadam(light.color) + spec) * light.pwr / (l.mag().powi(2));
-                    l_col += ((o_col * diff).hadam(light.color) + spec) * light.pwr;
-                }
+        if let Some(hit) = RayTracer::closest_hit(scene, ray) {
+            // emit
+            if hit.obj.mat.emit {
+                return hit.obj.mat.albedo;
             }
+
+            // total light
+            let l_col = RayTracer::pathtrace_direct_light(scene, &hit);
+            let d_col = self.pathtrace_indirect_light(scene, &hit);
+
+            return d_col + l_col.unwrap_or(Vec3f::default());
         }
 
-        // indirect light
-        let mut r_ray = ray.reflect(self, hit_obj);
-
-        // 15% chance to reflect
-        if hit_obj.mat.opacity != 1.0 && rand::thread_rng().gen_bool(0.85) {
-            let mut r_tmp = ray.clone();
-            r_tmp.t = hit.unwrap().2;
-
-            if let Some(r) = r_tmp.refract(self, hit_obj) {
-                r_ray = r;
-            }
-        }
-
-        let path = self.pathtrace(scene, &mut r_ray);
-        let d_col = (path.0 + hit_obj.mat.albedo.hadam(path.0)) / 2.0;
-
-        // total light
-        (l_col * ray.pwr + d_col * r_ray.pwr, hit)
+        scene.sky
     }
 
     fn raytrace(&self, coord: Vec2f, scene: &Scene, frame: &Frame) -> Vec3f {
         let mut ray = RayTracer::cast(coord, frame);
-        let path = self.pathtrace(scene, &mut ray);
-
-        path.0
+        self.pathtrace(scene, &mut ray)
     }
 }
 
