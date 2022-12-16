@@ -355,6 +355,12 @@ impl std::fmt::Display for Vec3f {
     }
 }
 
+impl std::fmt::Display for Vec2f {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!("({} {})", self.0, self.1))
+    }
+}
+
 impl <'a> ParseFromStrIter<'a> for Vec3f {
     fn parse<I: Iterator<Item = &'a String>>(it: &mut I) -> Self {
         Vec3f(
@@ -581,20 +587,11 @@ impl RayTracer {
         })
     }
 
-    fn cast(coord: Vec2f, frame: &Frame) -> Ray {
-        let w = frame.res.0 as f32 * frame.ssaa;
-        let h = frame.res.1 as f32 * frame.ssaa;
-
-        let aspect = w / h;
+    fn cast(uv: Vec2f, frame: &Frame) -> Ray {
+        // get direction
         let tan_fov = (frame.cam.fov / 2.0).to_radians().tan();
 
-        // get direction
-        let dir = Vec3f(
-            aspect * (2.0 * (coord.0 + 0.5) / w - 1.0),
-            tan_fov.recip(),
-            -(2.0 * (coord.1 + 0.5) / h - 1.0)
-        ).norm();
-
+        let dir = Vec3f(uv.0, 1.0 / (2.0 * tan_fov), -uv.1).norm();
         let cam_dir = frame.cam.dir.norm();
 
         // rotate direction
@@ -689,7 +686,16 @@ impl RayTracer {
     }
 
     fn raytrace(&self, coord: Vec2f, scene: &Scene, frame: &Frame) -> Vec3f {
-        let mut ray = RayTracer::cast(coord, frame);
+        let w = frame.res.0 as f32 * frame.ssaa;
+        let h = frame.res.1 as f32 * frame.ssaa;
+        let aspect = w / h;
+
+        let uv = Vec2f(
+            aspect * (coord.0 - w / 2.0) / w,
+            (coord.1 - h / 2.0) / h
+        );
+
+        let mut ray = RayTracer::cast(uv, frame);
         self.pathtrace(scene, &mut ray)
     }
 }
