@@ -87,12 +87,12 @@ Let's render simple scene with sphere in terminal:
 raytrace --obj sphere --light point: -0.5 -1 0.5
 ```
 
-It will produce an PNG image 800x600:
+It will produce an PNG image 1280x720:
 ![image](doc/out0.png)
 
-Now let's change a resolution and output file:
+Now let's change the resolution, output file and add some antialiasing:
 ```bash
-raytrace --obj sphere --light point: -0.5 -1 0.5 --res 1280 720 -o final.ppm
+raytrace --obj sphere --light point: -0.5 -1 0.5 --res 1920 1080 --ssaa 2 -o final.ppm
 ```
 
 ![image](doc/out1.png)
@@ -212,12 +212,12 @@ raytrace --obj sph r: 0.2 pos: 0.5 0.5 0 albedo: 1 0.76 0.47 emit: 1.0 \
 2. Next create `frame.json` file contains output frame information:
 ```json
 {
-    "res": [800, 600],
+    "res": [1280, 720],
     "ssaa": 1,
     "cam": {
         "dir": [0, 1, 0],
         "exp": 0.58,
-        "fov": 60,
+        "fov": 70,
         "gamma": 0.42,
         "pos": [0, -1.2, 0.1]
     }
@@ -240,7 +240,7 @@ raytrace -v -d --obj sphere --light point: -0.5 -1 0.5
 ```
 
 ```json
-{"frame":{"cam":{"dir":[0.0,1.0,0.0],"exp":0.20000000298023224,"fov":90.0,"gamma":0.800000011920929,"pos":[0.0,-1.0,0.0]},"res":[800,600],"ssaa":1.0},"rt":{"bounce":8,"loss":0.15000000596046448,"sample":16},"scene":{"light":[{"color":[1.0,1.0,1.0],"pos":[-0.5,-1.0,0.5],"pwr":0.5,"type":"point"}],"renderer":[{"mat":{"albedo":[1.0,1.0,1.0],"emit":0,"glass":0.0,"metal":0.0,"opacity":1.0,"rough":0.0},"pos":[0.0,0.0,0.0],"r":0.5,"type":"sphere"}],"sky":[0.0,0.0,0.0]}}
+{"frame":{"cam":{"dir":[0.0,1.0,0.0],"exp":0.20000000298023224,"fov":70.0,"gamma":0.800000011920929,"pos":[0.0,-1.0,0.0]},"res":[1280,720],"ssaa":1.0},"rt":{"bounce":8,"loss":0.15000000596046448,"sample":16},"scene":{"light":[{"color":[1.0,1.0,1.0],"pos":[-0.5,-1.0,0.5],"pwr":0.5,"type":"point"}],"renderer":[{"mat":{"albedo":[1.0,1.0,1.0],"emit":0,"glass":0.0,"metal":0.0,"opacity":1.0,"rough":0.0},"pos":[0.0,0.0,0.0],"r":0.5,"type":"sphere"}],"sky":[0.0,0.0,0.0]}}
 ```
 
 2. With prettifier:
@@ -254,11 +254,11 @@ raytrace -v -d --pretty --obj sphere --light point: -0.5 -1 0.5
         "cam": {
             "dir": [0, 1, 0],
             "exp": 0.20000000298023224,
-            "fov": 90,
+            "fov": 70,
             "gamma": 0.800000011920929,
             "pos": [0, -1, 0]
         },
-        "res": [800, 600],
+        "res": [1280, 720],
         "ssaa": 1
     },
     "rt": {

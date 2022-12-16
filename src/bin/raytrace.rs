@@ -420,7 +420,7 @@ impl Default for Camera {
         Camera {
             pos: Vec3f(0.0, -1.0, 0.0),
             dir: Vec3f(0.0, 1.0, 0.0),
-            fov: 90.0,
+            fov: 70.0,
             gamma: 0.8,
             exp: 0.2
         }
@@ -430,7 +430,7 @@ impl Default for Camera {
 impl Default for Frame {
     fn default() -> Self {
         Frame {
-            res: (800, 600),
+            res: (1280, 720),
             ssaa: 1.0,
             cam: Camera::default()
         }
