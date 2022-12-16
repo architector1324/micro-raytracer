@@ -110,7 +110,7 @@ raytrace --obj sph r: 0.2 pos: 0.5 0.5 0 albedo: 1 0.76 0.47 emit: 1.0 \
          --obj pln n: -1 0 0 pos: 1 0 0 albedo: 0 1 0 rough: 1 \
          --obj pln n: 1 0 0 pos: -1 0 0 albedo: 1 0 0 rough: 1 \
          --obj pln n: 0 -1 0 pos: 0 1 0 rough: 1 \
-         --cam pos: 0 -1.2 0.1 fov: 60 gamma: 0.42 exp: 0.58 \
+         --cam pos: 0 -1.2 0.1 fov: 60 gamma: 0.42 exp: 0.54 \
          --bounce 256 --sample 1024
 ```
 
@@ -216,7 +216,7 @@ raytrace --obj sph r: 0.2 pos: 0.5 0.5 0 albedo: 1 0.76 0.47 emit: 1.0 \
     "ssaa": 1,
     "cam": {
         "dir": [0, 1, 0],
-        "exp": 0.58,
+        "exp": 0.54,
         "fov": 70,
         "gamma": 0.42,
         "pos": [0, -1.2, 0.1]
