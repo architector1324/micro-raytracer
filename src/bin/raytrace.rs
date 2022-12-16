@@ -657,7 +657,7 @@ impl RayTracer {
         }
 
         let next_col = self.pathtrace(scene, &mut next_ray);
-        let col = (next_col + hit.obj.mat.albedo.hadam(next_col)) / 2.0;
+        let col = next_col / 2.0 + hit.obj.mat.albedo.hadam(next_col);
 
         col * next_ray.pwr
     }
