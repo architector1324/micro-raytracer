@@ -71,7 +71,7 @@ struct CLI {
     #[arg(long, value_names = ["pos: <f32 f32 f32>", "dir: <f32 f32 f32>", "fov: <f32>", "gamma: <f32>", "exp: <f32>"], num_args = 1..,  allow_negative_numbers = true, next_line_help = true, help = "Add camera to the scene")]
     cam: Option<Vec<String>>,
 
-    #[arg(long, value_names = ["<type: sphere(sph)|plane(pln)|box>", "param: <sphere: r: <f32>>|<plane: n: <f32 f32 f32>>|<box: size: <f32 f32 f32>>", "pos: <f32 f32 f32>" , "albedo: <f32 f32 f32>", "rough: <f32>", "metal: <f32>", "glass: <f32>", "opacity: <f32>", "emit: <f32>"], num_args = 0.., action = clap::ArgAction::Append, allow_negative_numbers = true, next_line_help = true, help = "Add renderer to the scene")]
+    #[arg(long, value_names = ["<type: sphere(sph)|plane(pln)|box>", "param: <sphere: r: <f32>>|<plane: n: <f32 f32 f32>>|<box: size: <f32 f32 f32>>", "pos: <f32 f32 f32>" , "albedo: <f32 f32 f32>", "rough: <f32>", "metal: <f32>", "glass: <f32>", "opacity: <f32>", "emit: <f32>", "tex: <FILE.ext|<base64 str>>"], num_args = 0.., action = clap::ArgAction::Append, allow_negative_numbers = true, next_line_help = true, help = "Add renderer to the scene")]
     obj: Option<Vec<String>>,
 
     #[arg(long, value_names = ["param: <point(pt): <f32 f32 f32>>|<dir: <f32 f32 f32>>", "pwr: <f32>", "col: <f32 f32 f32>"], num_args = 0.., action = clap::ArgAction::Append, allow_negative_numbers = true, next_line_help = true, help = "Add light source to the scene")]
@@ -132,13 +132,34 @@ struct Frame {
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(default)]
+struct BufferF32 {
+    w: usize,
+    h: usize,
+    dat: Option<Vec<Vec3f>>
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+enum Texture {
+    #[serde(rename = "inl")]
+    InlineBase64(String),
+
+    #[serde(rename = "file")]
+    File(String),
+
+    #[serde(rename = "buf")]
+    Buffer(BufferF32)
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(default)]
 struct Material {
     albedo: Vec3f,
     rough: f32,
     metal: f32,
     glass: f32,
     opacity: f32,
-    emit: f32
+    emit: f32,
+    tex: Option<Texture>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -461,7 +482,18 @@ impl Default for Material {
             metal: 0.0,
             glass: 0.0,
             opacity: 1.0,
-            emit: 0.0
+            emit: 0.0,
+            tex: None
+        }
+    }
+}
+
+impl Default for BufferF32 {
+    fn default() -> Self {
+        BufferF32 {
+            w: 0,
+            h: 0,
+            dat: None
         }
     }
 }
@@ -475,6 +507,56 @@ impl Default for Light {
             pwr: 0.5,
             color: Vec3f(1.0, 1.0, 1.0)
         }
+    }
+}
+
+impl Texture {
+    fn load(name: &str) -> Texture {
+        let mut tmp = image::open(name).unwrap();
+        let img = tmp.as_mut_rgb8().unwrap();
+        let size = img.dimensions();
+
+        let mut out = vec![];
+
+        for px in img.pixels() {
+            let col = Vec3f(
+                px[0] as f32 / 255.0,
+                px[1] as f32 / 255.0,
+                px[2] as f32 / 255.0
+            );
+            out.push(col);
+        }
+
+        Texture::Buffer(BufferF32 {
+            w: size.0 as usize,
+            h: size.1 as usize,
+            dat: Some(out)
+        })
+    }
+
+    fn from_inline(s: &str) -> Texture {
+        todo!()
+    }
+
+    fn to_buffer(&mut self) {
+        match self {
+            Texture::File(name) => *self = Texture::load(name),
+            Texture::InlineBase64(s) => *self = Texture::from_inline(s),
+            _ => ()
+        }
+    }
+
+    fn get_color(&self, uv: Vec2f) -> Vec3f {
+        if let Texture::Buffer(buf) = self {
+            let x = (uv.0 * buf.w as f32) as usize;
+            let y = (uv.1 * buf.h as f32) as usize;
+
+            if let Some(dat) = &buf.dat {
+                return dat[(x + y * buf.w) as usize];
+            }
+            return Vec3f::zero()
+        }
+        panic!("buffer is not ready!")
     }
 }
 
@@ -567,6 +649,26 @@ impl Renderer {
             }
         }
     }
+
+    fn to_uv(&self, hit: Vec3f) -> Vec2f {
+        match self.kind {
+            RendererKind::Sphere{..} => {
+                let v = (hit - self.pos).norm();
+                Vec2f(
+                    0.5 + 0.5 * v.0.atan2(-v.1) / std::f32::consts::PI,
+                    0.5 - 0.5 * v.2
+                )
+            }
+            _ => todo!()
+        }
+    }
+
+    fn get_color(&self, v: Vec3f) -> Vec3f {
+        if let Some(tex) = &self.mat.tex {
+            return self.mat.albedo.hadam(tex.get_color(self.to_uv(v)));
+        }
+        self.mat.albedo
+    }
 }
 
 impl RayTracer {
@@ -637,7 +739,7 @@ impl RayTracer {
             let diff = (l.norm() * hit.norm.0).max(0.0);
             let spec = (hit.ray.0.dir * l.norm().reflect(hit.norm.0)).max(0.0).powi(32) * (1.0 - hit.obj.mat.rough);
 
-            let o_col = hit.obj.mat.albedo * (1.0 - hit.obj.mat.metal);
+            let o_col = hit.obj.get_color((&hit.ray.0).into()) * (1.0 - hit.obj.mat.metal);
 
             // col += ((o_col * diff).hadam(light.color) + spec) * light.pwr / (l.mag().powi(2));
             col += ((o_col * diff).hadam(light.color) + spec) * light.pwr;
@@ -657,7 +759,7 @@ impl RayTracer {
         }
 
         let next_col = self.pathtrace(scene, &mut next_ray);
-        let col = next_col / 2.0 + hit.obj.mat.albedo.hadam(next_col);
+        let col = next_col / 2.0 + hit.obj.get_color((&hit.ray.0).into()).hadam(next_col);
 
         col * next_ray.pwr
     }
@@ -672,7 +774,7 @@ impl RayTracer {
         if let Some(hit) = RayTracer::closest_hit(scene, ray) {
             // emit
             if rand::thread_rng().gen_bool(hit.obj.mat.emit.into()) {
-                return hit.obj.mat.albedo;
+                return hit.obj.get_color((&hit.ray.0).into());
             }
 
             // total light
@@ -831,6 +933,7 @@ impl From<Vec<String>> for Renderer {
                 "glass:" => obj.mat.glass = <f32>::parse(&mut it),
                 "opacity:" => obj.mat.opacity = <f32>::parse(&mut it),
                 "emit:" => obj.mat.emit = <f32>::parse(&mut it),
+                "tex:" => obj.mat.tex = Some(Texture::File(String::from(it.next().unwrap()))), 
                 _ => {
                     if !is_type_param {
                         panic!("`{}` param for `{}` is unxpected!", param, t);
@@ -888,6 +991,14 @@ fn main() {
 
     if let Some(sky) = cli.sky {
         scene.sky = Vec3f::parse(&mut sky.iter());
+    }
+
+    if let Some(ref mut objs) = scene.renderer {
+        for obj in objs {
+            if let Some(tex) = &mut obj.mat.tex {
+                tex.to_buffer();
+            }
+        }
     }
 
     // setup raytacer
