@@ -1,8 +1,8 @@
-use clap::{Parser};
+use clap::Parser;
 use serde_json::json;
 
-use micro_raytracer::lin::{Vec3f, Vec2f};
-use micro_raytracer::rt::{RayTracer, Scene, Frame, Camera, LightKind, RendererKind, Light, Renderer, Material, Texture};
+use micro_raytracer::lin::{Vec3f, Vec2f, ParseFromStrIter};
+use micro_raytracer::rt::{RayTracer, Scene, Frame, Camera, Light, Renderer};
 
 
 #[derive(Parser)]
@@ -61,10 +61,6 @@ struct CLI {
     sky: Option<Vec<String>>
 }
 
-trait ParseFromStrIter<'a> {
-    fn parse<I: Iterator<Item = &'a String>>(it: &mut I) -> Self;
-}
-
 trait ParseFromArgs<T: From<Vec<String>>> {
     fn parse_args(args: &Vec<String>, pat: &[&str], out: &mut Option<Vec<T>>) {
         let args_rev: Vec<_> = args.iter().rev().map(|v| String::from(v)).collect();
@@ -80,168 +76,8 @@ trait ParseFromArgs<T: From<Vec<String>>> {
     }
 }
 
-impl <'a> ParseFromStrIter<'a> for Vec3f {
-    fn parse<I: Iterator<Item = &'a String>>(it: &mut I) -> Self {
-        Vec3f(
-            <f32>::parse(it),
-            <f32>::parse(it),
-            <f32>::parse(it)
-        )
-    }
-}
-
-impl <'a> ParseFromStrIter<'a> for f32 {
-    fn parse<I: Iterator<Item = &'a String>>(it: &mut I) -> Self {
-        it.next().unwrap().parse::<f32>().expect("should be <f32>!")
-    }
-}
-
-struct CameraWrap(Camera);
-struct RendererWrap(Renderer);
-struct LightWrap(Light);
-
-impl ParseFromArgs<RendererWrap> for Scene {}
-impl ParseFromArgs<LightWrap> for Scene {}
-
-impl From<Vec<String>> for CameraWrap {
-    fn from(args: Vec<String>) -> Self {
-        let mut it = args.iter();
-        let mut cam = Camera::default();
-
-        while let Some(param) = it.next() {
-            match param.as_str() {
-                "pos:" => cam.pos = Vec3f::parse(&mut it),
-                "dir:" => cam.dir = Vec3f::parse(&mut it).norm(),
-                "fov:" => cam.fov = <f32>::parse(&mut it),
-                "gamma:" => cam.gamma = <f32>::parse(&mut it),
-                "exp:" => cam.exp = <f32>::parse(&mut it),
-                _ => panic!("`{}` param for `cam` is unxpected!", param)
-            }
-        }
-        CameraWrap(cam)   
-    }
-}
-
-impl From<Vec<String>> for LightWrap {
-    fn from(args: Vec<String>) -> Self {
-        let t = &args[0];
-        let mut it = args.iter();
-
-        // parse object
-        let mut light = Light {
-            kind: match t.as_str() {
-                "pt:" | "point:" => LightKind::Point {pos: Vec3f::default()},
-                "dir:" => LightKind::Dir {dir: Vec3f(0.0, 1.0, 0.0)},
-                _ => panic!("`{}` type is unxpected!", t)
-            },
-            ..Default::default()
-        };
-
-        // modify params
-        while let Some(param) = it.next() {
-            // type params
-            let is_type_param = match light.kind {
-                LightKind::Point {ref mut pos} => {
-                    if param.as_str() == "pt:" || param.as_str() == "point:" {
-                        *pos = Vec3f::parse(&mut it);
-                        true
-                    } else {
-                        false
-                    }
-                },
-                LightKind::Dir {ref mut dir} => {
-                    if param.as_str() == "dir:" {
-                        *dir = Vec3f::parse(&mut it).norm();
-                        true
-                    } else {
-                        false
-                    }
-                }
-            };
-
-            // common params
-            match param.as_str() {
-                "col:" => light.color = Vec3f::parse(&mut it),
-                "pwr:" => light.pwr = <f32>::parse(&mut it),
-                _ => {
-                    if !is_type_param {
-                        panic!("`{}` param for `light` is unxpected!", param);
-                    }
-                }
-            }
-        }
-
-        LightWrap(light)
-    }
-}
-
-impl From<Vec<String>> for RendererWrap {
-    fn from(args: Vec<String>) -> Self {
-        let t = &args[0];
-        let mut it = args.iter().skip(1);
-
-        // parse object
-        let mut obj = Renderer {
-            kind: match t.as_str() {
-                "sph" | "sphere" => RendererKind::Sphere {r: 0.5},
-                "pln" | "plane" => RendererKind::Plane {n: Vec3f(0.0, 0.0, 1.0)},
-                "box" => RendererKind::Box {sizes: Vec3f(0.5, 0.5, 0.5)},
-                _ => panic!("`{}` type is unxpected!", t)
-            },
-            pos: Vec3f::default(),
-            mat: Material::default()
-        };
-
-        // modify params
-        while let Some(param) = it.next() {
-            // type params
-            let is_type_param = match obj.kind {
-                RendererKind::Sphere {ref mut r} => {
-                    if param.as_str() == "r:" {
-                        *r = <f32>::parse(&mut it);
-                        true
-                    } else {
-                        false
-                    }
-                },
-                RendererKind::Plane{ref mut n} => {
-                    if param.as_str() == "n:" {
-                        *n = Vec3f::parse(&mut it);
-                        true
-                    } else {
-                        false
-                    }
-                },
-                RendererKind::Box {ref mut sizes} => {
-                    if param.as_str() == "size:" {
-                        *sizes = Vec3f::parse(&mut it);
-                        true
-                    } else {
-                        false
-                    }
-                }
-            };
-
-            // common params
-            match param.as_str() {
-                "pos:" => obj.pos = Vec3f::parse(&mut it),
-                "albedo:" => obj.mat.albedo = Vec3f::parse(&mut it),
-                "rough:" => obj.mat.rough = <f32>::parse(&mut it),
-                "metal:" => obj.mat.metal = <f32>::parse(&mut it),
-                "glass:" => obj.mat.glass = <f32>::parse(&mut it),
-                "opacity:" => obj.mat.opacity = <f32>::parse(&mut it),
-                "emit:" => obj.mat.emit = <f32>::parse(&mut it),
-                "tex:" => obj.mat.tex = Some(Texture::File(String::from(it.next().unwrap()))), 
-                _ => {
-                    if !is_type_param {
-                        panic!("`{}` param for `{}` is unxpected!", param, t);
-                    } 
-                }
-            };
-        }
-        RendererWrap(obj)
-    }
-}
+impl ParseFromArgs<Renderer> for Scene {}
+impl ParseFromArgs<Light> for Scene {}
 
 
 fn main() {
@@ -268,7 +104,7 @@ fn main() {
     }
 
     if let Some(cam_args) = cli.cam {
-        frame.cam = CameraWrap::from(cam_args).0;
+        frame.cam = Camera::from(cam_args);
     }
 
     // get scene
@@ -280,31 +116,15 @@ fn main() {
     }
 
     if let Some(objs_args) = cli.obj {
-        let mut tmp = match scene.renderer {
-            Some(ref objs) => Some(objs.iter().map(|v| RendererWrap(v.clone())).collect::<Vec<_>>()),
-            _ => None
-        };
-        Scene::parse_args(&objs_args, &["sphere", "sph", "plane", "pln", "box"], &mut tmp);
+        Scene::parse_args(&objs_args, &["sphere", "sph", "plane", "pln", "box"], &mut scene.renderer);
     }
 
     if let Some(lights_args) = cli.light {
-        let mut tmp = match scene.light {
-            Some(ref objs) => Some(objs.iter().map(|v| LightWrap(v.clone())).collect::<Vec<_>>()),
-            _ => None
-        };
-        Scene::parse_args(&lights_args, &["pt:", "point:", "dir:"], &mut tmp);
+        Scene::parse_args(&lights_args, &["pt:", "point:", "dir:"], &mut scene.light);
     }
 
     if let Some(sky) = cli.sky {
         scene.sky = Vec3f::parse(&mut sky.iter());
-    }
-
-    if let Some(ref mut objs) = scene.renderer {
-        for obj in objs {
-            if let Some(tex) = &mut obj.mat.tex {
-                tex.to_buffer();
-            }
-        }
     }
 
     // setup raytacer
@@ -331,6 +151,15 @@ fn main() {
 
     if cli.dry {
         return;
+    }
+
+    // unwrap textures
+    if let Some(ref mut objs) = scene.renderer {
+        for obj in objs {
+            if let Some(tex) = &mut obj.mat.tex {
+                tex.to_buffer();
+            }
+        }
     }
 
     // raytrace

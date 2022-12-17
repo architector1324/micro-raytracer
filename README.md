@@ -80,6 +80,27 @@ Options:
           Print version information
 ```
 
+```bash
+$ ./img2json -h
+Convert images to json for micro-rt.
+
+Usage: img2json [OPTIONS] <IMG>
+
+Arguments:
+  <IMG>
+          Input image filename
+
+Options:
+      --pretty
+          Print json with prettifier
+  -f, --fmt <fmt: <buf|inl>>
+          Texture format
+  -h, --help
+          Print help information
+  -V, --version
+          Print version information
+```
+
 ### In-place in terminal
 Let's render simple scene with sphere in terminal:
 

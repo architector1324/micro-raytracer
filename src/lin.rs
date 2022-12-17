@@ -1,6 +1,7 @@
 use serde::{Serialize, Deserialize};
 use rand::Rng;
 
+
 #[derive(Debug, Clone)]
 pub struct Vec2f (pub f32, pub f32);
 
@@ -181,4 +182,22 @@ impl Default for Vec3f {
     }
 }
 
+pub trait ParseFromStrIter<'a> {
+    fn parse<I: Iterator<Item = &'a String>>(it: &mut I) -> Self;
+}
 
+impl <'a> ParseFromStrIter<'a> for Vec3f {
+    fn parse<I: Iterator<Item = &'a String>>(it: &mut I) -> Self {
+        Vec3f(
+            <f32>::parse(it),
+            <f32>::parse(it),
+            <f32>::parse(it)
+        )
+    }
+}
+
+impl <'a> ParseFromStrIter<'a> for f32 {
+    fn parse<I: Iterator<Item = &'a String>>(it: &mut I) -> Self {
+        it.next().unwrap().parse::<f32>().expect("should be <f32>!")
+    }
+}
