@@ -165,11 +165,11 @@ impl Texture {
         let mut out = vec![];
 
         for px in img.pixels() {
-            let col = Vec3f(
-                px[0] as f32 / 255.0,
-                px[1] as f32 / 255.0,
-                px[2] as f32 / 255.0
-            );
+            let col = Vec3f {
+                x: px[0] as f32 / 255.0,
+                y: px[1] as f32 / 255.0,
+                z: px[2] as f32 / 255.0
+            };
             out.push(col);
         }
 
@@ -216,8 +216,8 @@ impl Texture {
 
     pub fn get_color(&self, uv: Vec2f) -> Vec3f {
         if let Texture::Buffer(buf) = self {
-            let x = (uv.0 * buf.w as f32) as usize;
-            let y = (uv.1 * buf.h as f32) as usize;
+            let x = (uv.x * buf.w as f32) as usize;
+            let y = (uv.y * buf.h as f32) as usize;
 
             if let Some(dat) = &buf.dat {
                 return dat[(x + y * buf.w) as usize];
@@ -270,8 +270,8 @@ impl Renderer {
                 let a = -n - k;
                 let b = -n + k;
 
-                let t0 = a.0.max(a.1).max(a.2);
-                let t1 = b.0.min(b.1).min(b.2);
+                let t0 = a.x.max(a.y).max(a.z);
+                let t1 = b.x.min(b.y).min(b.z);
 
                 if t0 > t1 || t1 < 0.0 {
                     return None
@@ -292,24 +292,24 @@ impl Renderer {
                 let pos_r = 1.0-E..1.0+E;
                 let neg_r = -1.0-E..-1.0+E;
 
-                if pos_r.contains(&p.0) {
+                if pos_r.contains(&p.x) {
                     // right
-                    return Vec3f(1.0, 0.0, 0.0);
-                } else if neg_r.contains(&p.0) {
+                    return Vec3f{x: 1.0, y: 0.0, z: 0.0};
+                } else if neg_r.contains(&p.x) {
                     // left
-                    return Vec3f(-1.0, 0.0, 0.0);
-                } else if pos_r.contains(&p.1) {
+                    return Vec3f{x: -1.0, y: 0.0, z: 0.0};
+                } else if pos_r.contains(&p.y) {
                     // forward
-                    return Vec3f(0.0, 1.0, 0.0);
-                } else if neg_r.contains(&p.1) {
+                    return Vec3f{x: 0.0, y: 1.0, z: 0.0};
+                } else if neg_r.contains(&p.y) {
                     // backward
-                    return Vec3f(0.0, -1.0, 0.0);
-                } if pos_r.contains(&p.2) {
+                    return Vec3f{x: 0.0, y: -1.0, z: 0.0};
+                } if pos_r.contains(&p.z) {
                     // top
-                    return Vec3f(0.0, 0.0, 1.0);
-                } else if neg_r.contains(&p.2) {
+                    return Vec3f{x: 0.0, y: 0.0, z: 1.0};
+                } else if neg_r.contains(&p.z) {
                     // bottom
-                    return Vec3f(0.0, 0.0, -1.0);
+                    return Vec3f{x: 0.0, y: 0.0, z: -1.0};
                 } else {
                     // error
                     Vec3f::zero()
@@ -322,10 +322,10 @@ impl Renderer {
         match self.kind {
             RendererKind::Sphere{..} => {
                 let v = (hit - self.pos).norm();
-                Vec2f(
-                    0.5 + 0.5 * v.0.atan2(-v.1) / std::f32::consts::PI,
-                    0.5 - 0.5 * v.2
-                )
+                Vec2f {
+                    x: 0.5 + 0.5 * v.x.atan2(-v.y) / std::f32::consts::PI,
+                    y: 0.5 - 0.5 * v.z
+                }
             }
             _ => todo!()
         }
@@ -361,25 +361,30 @@ impl RayTracer {
         // get direction
         let tan_fov = (frame.cam.fov / 2.0).to_radians().tan();
 
-        let dir = Vec3f(uv.0, 1.0 / (2.0 * tan_fov), -uv.1).norm();
+        let dir = Vec3f{
+            x: uv.x,
+            y: 1.0 / (2.0 * tan_fov),
+            z: -uv.y
+        }.norm();
+
         let cam_dir = frame.cam.dir.norm();
 
         // rotate direction
         let rot_x: Mat3f = [
             1.0, 0.0, 0.0,
-            0.0, cam_dir.1, -cam_dir.2,
-            0.0, cam_dir.2, cam_dir.1
+            0.0, cam_dir.y, -cam_dir.z,
+            0.0, cam_dir.z, cam_dir.y
         ];
 
         // let rot_y: Mat3f = [
-        //     cam_dir.0, 0.0, cam_dir.2,
+        //     cam_dir.x, 0.0, cam_dir.z,
         //     0.0, 1.0, 0.0,
-        //     -cam_dir.2, 0.0, cam_dir.0
+        //     -cam_dir.z, 0.0, cam_dir.x
         // ];
 
         let rot_z: Mat3f = [
-            cam_dir.1, cam_dir.0, 0.0,
-            -cam_dir.0, cam_dir.1, 0.0,
+            cam_dir.y, cam_dir.x, 0.0,
+            -cam_dir.x, cam_dir.y, 0.0,
             0.0, 0.0, 1.0
         ];
 
@@ -460,10 +465,10 @@ impl RayTracer {
         let h = frame.res.1 as f32 * frame.ssaa;
         let aspect = w / h;
 
-        let uv = Vec2f(
-            aspect * (coord.0 - w / 2.0) / w,
-            (coord.1 - h / 2.0) / h
-        );
+        let uv = Vec2f {
+            x: aspect * (coord.x - w / 2.0) / w,
+            y: (coord.y - h / 2.0) / h
+        };
 
         let mut ray = RayTracer::cast(uv, frame);
         self.pathtrace(scene, &mut ray)
@@ -491,8 +496,8 @@ impl Default for Ray {
 impl Default for Camera {
     fn default() -> Self {
         Camera {
-            pos: Vec3f(0.0, -1.0, 0.0),
-            dir: Vec3f(0.0, 1.0, 0.0),
+            pos: Vec3f{x: 0.0, y: -1.0, z: 0.0},
+            dir: Vec3f{x: 0.0, y: 1.0, z: 0.0},
             fov: 70.0,
             gamma: 0.8,
             exp: 0.2
@@ -523,7 +528,7 @@ impl Default for Scene {
 impl Default for Material {
     fn default() -> Self {
         Material {
-            albedo: Vec3f(1.0, 1.0, 1.0),
+            albedo: Vec3f{x: 1.0, y: 1.0, z: 1.0},
             rough: 0.0,
             metal: 0.0,
             glass: 0.0,
@@ -551,7 +556,7 @@ impl Default for Light {
                 pos: Vec3f::default()
             },
             pwr: 0.5,
-            color: Vec3f(1.0, 1.0, 1.0)
+            color: Vec3f{x: 1.0, y: 1.0, z: 1.0}
         }
     }
 }
@@ -584,7 +589,7 @@ impl From<Vec<String>> for Light {
         let mut light = Light {
             kind: match t.as_str() {
                 "pt:" | "point:" => LightKind::Point {pos: Vec3f::default()},
-                "dir:" => LightKind::Dir {dir: Vec3f(0.0, 1.0, 0.0)},
+                "dir:" => LightKind::Dir {dir: Vec3f{x: 0.0, y: 1.0, z: 0.0}},
                 _ => panic!("`{}` type is unxpected!", t)
             },
             ..Default::default()
@@ -637,8 +642,8 @@ impl From<Vec<String>> for Renderer {
         let mut obj = Renderer {
             kind: match t.as_str() {
                 "sph" | "sphere" => RendererKind::Sphere {r: 0.5},
-                "pln" | "plane" => RendererKind::Plane {n: Vec3f(0.0, 0.0, 1.0)},
-                "box" => RendererKind::Box {sizes: Vec3f(0.5, 0.5, 0.5)},
+                "pln" | "plane" => RendererKind::Plane {n: Vec3f{x: 0.0, y: 0.0, z: 1.0}},
+                "box" => RendererKind::Box {sizes: Vec3f{x: 0.5, y: 0.5, z: 0.5}},
                 _ => panic!("`{}` type is unxpected!", t)
             },
             pos: Vec3f::default(),

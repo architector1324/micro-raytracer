@@ -3,17 +3,24 @@ use rand::Rng;
 
 
 #[derive(Debug, Clone)]
-pub struct Vec2f (pub f32, pub f32);
+pub struct Vec2f {
+    pub x: f32,
+    pub y: f32
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
-pub struct Vec3f (pub f32, pub f32, pub f32);
+pub struct Vec3f {
+    pub x: f32,
+    pub y: f32,
+    pub z: f32
+}
 
 pub type Mat3f = [f32; 9];
 
 
 impl Vec3f {
     pub fn mag(self) -> f32 {
-        (self.0.powi(2) + self.1.powi(2) + self.2.powi(2)).sqrt()
+        (self.x.powi(2) + self.y.powi(2) + self.z.powi(2)).sqrt()
     }
 
     pub fn norm(self) -> Self {
@@ -25,11 +32,19 @@ impl Vec3f {
     }
 
     pub fn recip(self) -> Self {
-        Vec3f(self.0.recip(), self.1.recip(), self.2.recip())
+        Vec3f {
+            x: self.x.recip(),
+            y: self.y.recip(),
+            z: self.z.recip()
+        }
     }
 
     pub fn abs(self) -> Self {
-        Vec3f(self.0.abs(), self.1.abs(), self.2.abs())
+        Vec3f {
+            x: self.x.abs(),
+            y: self.y.abs(),
+            z: self.z.abs()
+        }
     }
 
     pub fn refract(self, eta: f32, n: Vec3f) -> Option<Vec3f> {
@@ -44,19 +59,27 @@ impl Vec3f {
     }
 
     pub fn hadam(self, rhs: Vec3f) -> Self {
-        Vec3f(self.0 * rhs.0, self.1 * rhs.1, self.2 * rhs.2)
+        Vec3f {
+            x: self.x * rhs.x,
+            y: self.y * rhs.y,
+            z: self.z * rhs.z
+        }
     }
 
     pub fn rand(max_v: f32) -> Self {
-        Vec3f(
-            rand::thread_rng().gen_range(-0.5..0.5) * max_v,
-            rand::thread_rng().gen_range(-0.5..0.5) * max_v, 
-            rand::thread_rng().gen_range(-0.5..0.5) * max_v
-        )
+        Vec3f {
+            x: rand::thread_rng().gen_range(-0.5..0.5) * max_v,
+            y: rand::thread_rng().gen_range(-0.5..0.5) * max_v, 
+            z: rand::thread_rng().gen_range(-0.5..0.5) * max_v
+        }
     }
 
     pub fn zero() -> Self {
-        Vec3f(0.0, 0.0, 0.0)
+        Vec3f {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0
+        }
     }
 }
 
@@ -64,7 +87,11 @@ impl std::ops::Add for Vec3f {
     type Output = Vec3f;
 
     fn add(self, rhs: Self) -> Self::Output {
-        Vec3f(self.0 + rhs.0, self.1 + rhs.1, self.2 + rhs.2)
+        Vec3f {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+            z: self.z + rhs.z
+        }
     }
 }
 
@@ -72,7 +99,11 @@ impl std::ops::Add<f32> for Vec3f {
     type Output = Vec3f;
 
     fn add(self, rhs: f32) -> Self::Output {
-        Vec3f(self.0 + rhs, self.1 + rhs, self.2 + rhs)
+        Vec3f {
+            x: self.x + rhs,
+            y: self.y + rhs,
+            z: self.z + rhs
+        }
     }
 }
 
@@ -80,7 +111,11 @@ impl std::ops::Sub<f32> for Vec3f {
     type Output = Vec3f;
 
     fn sub(self, rhs: f32) -> Self::Output {
-        Vec3f(self.0 - rhs, self.1 - rhs, self.2 - rhs)
+        Vec3f {
+            x: self.x - rhs,
+            y: self.y - rhs,
+            z: self.z - rhs
+        }
     }
 }
 
@@ -88,21 +123,29 @@ impl std::ops::Sub for Vec3f {
     type Output = Vec3f;
 
     fn sub(self, rhs: Self) -> Self::Output {
-        Vec3f(self.0 - rhs.0, self.1 - rhs.1, self.2 - rhs.2)
+        Vec3f {
+            x: self.x - rhs.x,
+            y: self.y - rhs.y,
+            z: self.z - rhs.z
+        }
     }
 }
 
 impl std::ops::Mul for Vec3f {
     type Output = f32;
     fn mul(self, rhs: Self) -> Self::Output {
-        self.0 * rhs.0 + self.1 * rhs.1 + self.2 * rhs.2
+        self.x * rhs.x + self.y * rhs.y + self.z * rhs.z
     }
 }
 
 impl std::ops::Mul<f32> for Vec3f {
     type Output = Vec3f;
     fn mul(self, rhs: f32) -> Self::Output {
-        Vec3f(self.0 * rhs, self.1 * rhs, self.2 * rhs)
+        Vec3f {
+            x: self.x * rhs,
+            y: self.y * rhs,
+            z: self.z * rhs
+        }
     }
 }
 
@@ -118,7 +161,11 @@ impl std::ops::Neg for Vec3f {
     type Output = Vec3f;
 
     fn neg(self) -> Self::Output {
-        Vec3f(-self.0, -self.1, -self.2)
+        Vec3f {
+            x: -self.x,
+            y: -self.y,
+            z: -self.z
+        }
     }
 }
 
@@ -126,23 +173,27 @@ impl std::ops::Div for Vec3f {
     type Output = Vec3f;
 
     fn div(self, rhs: Self) -> Self::Output {
-        Vec3f(self.0 / rhs.0, self.1 / rhs.1, self.2 / rhs.2)
+        Vec3f {
+            x: self.x / rhs.x,
+            y: self.y / rhs.y, 
+            z: self.z / rhs.z
+        }
     }
 }
 
 impl std::ops::AddAssign for Vec3f {
     fn add_assign(&mut self, rhs: Self) {
-        self.0 += rhs.0;
-        self.1 += rhs.1;
-        self.2 += rhs.2;
+        self.x += rhs.x;
+        self.y += rhs.y;
+        self.z += rhs.z;
     }
 }
 
 impl std::ops::SubAssign for Vec3f {
     fn sub_assign(&mut self, rhs: Self) {
-        self.0 -= rhs.0;
-        self.1 -= rhs.1;
-        self.2 -= rhs.2;
+        self.x -= rhs.x;
+        self.y -= rhs.y;
+        self.z -= rhs.z;
     }
 }
 
@@ -150,29 +201,29 @@ impl std::ops::Mul<Vec3f> for Mat3f {
     type Output = Vec3f;
 
     fn mul(self, rhs: Vec3f) -> Self::Output {
-        Vec3f(
-            self[0] * rhs.0 + self[1] * rhs.1 + self[2] * rhs.2,
-            self[3] * rhs.0 + self[4] * rhs.1 + self[5] * rhs.2,
-            self[6] * rhs.0 + self[7] * rhs.1 + self[8] * rhs.2,
-        )
+        Vec3f {
+            x: self[0] * rhs.x + self[1] * rhs.y + self[2] * rhs.z,
+            y: self[3] * rhs.x + self[4] * rhs.y + self[5] * rhs.z,
+            z: self[6] * rhs.x + self[7] * rhs.y + self[8] * rhs.z,
+        }
     }
 }
 
 impl std::fmt::Display for Vec3f {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!("({} {} {})", self.0, self.1, self.2))
+        f.write_fmt(format_args!("({} {} {})", self.x, self.y, self.z))
     }
 }
 
 impl std::fmt::Display for Vec2f {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!("({} {})", self.0, self.1))
+        f.write_fmt(format_args!("({} {})", self.x, self.y))
     }
 }
 
 impl From<Vec3f> for [f32; 3] {
     fn from(v: Vec3f) -> Self {
-        [v.0, v.1, v.2]
+        [v.x, v.y, v.z]
     }
 }
 
@@ -188,11 +239,11 @@ pub trait ParseFromStrIter<'a> {
 
 impl <'a> ParseFromStrIter<'a> for Vec3f {
     fn parse<I: Iterator<Item = &'a String>>(it: &mut I) -> Self {
-        Vec3f(
-            <f32>::parse(it),
-            <f32>::parse(it),
-            <f32>::parse(it)
-        )
+        Vec3f {
+            x: <f32>::parse(it),
+            y: <f32>::parse(it),
+            z: <f32>::parse(it)
+        }
     }
 }
 
