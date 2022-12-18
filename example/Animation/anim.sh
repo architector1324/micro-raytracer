@@ -10,11 +10,11 @@ for (( i=0; i < $frames ; i++ )) do
 
     echo "frame: $i"
 
-    ../../raytrace --obj sph r: 0.4 pos: 0 1 0 emit \
+    ../../raytrace --obj sph r: 0.4 pos: 0 1 0 emit: 1 \
                    --obj sph r: 0.2 pos: $x $y -0.2 glass: 0.2 opacity: 0 \
                    --obj pln pos: 0 0 -0.4 rough: 1 \
                    --cam exp: 0.5 \
-                   --sample 256 -o ./frames/out$i.png
+                   --sample 256 -o ./frames/out$i.png \
                    --ssaa 2
                 
 done
