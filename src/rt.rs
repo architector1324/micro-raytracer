@@ -326,8 +326,61 @@ impl Renderer {
                     x: 0.5 + 0.5 * v.x.atan2(-v.y) / std::f32::consts::PI,
                     y: 0.5 - 0.5 * v.z
                 }
+            },
+            RendererKind::Plane{..} => {
+                let v = hit;
+                Vec2f {
+                    x: 0.5 + v.x.rem_euclid(0.5).abs(),
+                    y: 0.5 - v.y.rem_euclid(0.5).abs()
+                }
+            },
+            RendererKind::Box {sizes} => {
+                let p = (hit - self.pos).hadam(sizes.recip() * 2.0);
+
+                let pos_r = 1.0-E..1.0+E;
+                let neg_r = -1.0-E..-1.0+E;
+
+                if pos_r.contains(&p.x) {
+                    // right
+                    return Vec2f {
+                        x: (0.5 + 0.5 * p.y) / 4.0 + 2.0 / 4.0,
+                        y: (0.5 - 0.5 * p.z) / 3.0 + 1.0 / 3.0
+                    }
+                } else if neg_r.contains(&p.x) {
+                    // left
+                    return Vec2f {
+                        x: (0.5 - 0.5 * p.y) / 4.0,
+                        y: (0.5 - 0.5 * p.z) / 3.0 + 1.0 / 3.0
+                    }
+                } else if pos_r.contains(&p.y) {
+                    // forward
+                    return Vec2f {
+                        x: (0.5 - 0.5 * p.x) / 4.0 + 3.0 / 4.0,
+                        y: (0.5 - 0.5 * p.z) / 3.0 + 1.0 / 3.0
+                    };
+                } else if neg_r.contains(&p.y) {
+                    // backward
+                    return Vec2f {
+                        x: (0.5 + 0.5 * p.x) / 4.0 + 1.0 / 4.0,
+                        y: (0.5 - 0.5 * p.z) / 3.0 + 1.0 / 3.0
+                    };
+                } if pos_r.contains(&p.z) {
+                    // top
+                    return Vec2f {
+                        x: (0.5 + 0.5 * p.x) / 4.0 + 1.0 / 4.0,
+                        y: (0.5 - 0.5 * p.y) / 3.0
+                    }
+                } else if neg_r.contains(&p.z) {
+                    // bottom
+                    return Vec2f {
+                        x: (0.5 + 0.5 * p.x) / 4.0 + 1.0 / 4.0,
+                        y: (0.5 + 0.5 * p.y) / 3.0 + 2.0 / 3.0
+                    }
+                } else {
+                    // error
+                    return Vec2f::zero();
+                }
             }
-            _ => todo!()
         }
     }
 

@@ -9,6 +9,7 @@ pub struct Vec2f {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+#[serde(into = "[f32; 3]", from = "[f32; 3]")]
 pub struct Vec3f {
     pub x: f32,
     pub y: f32,
@@ -17,6 +18,11 @@ pub struct Vec3f {
 
 pub type Mat3f = [f32; 9];
 
+impl Vec2f {
+    pub fn zero() -> Vec2f {
+        Vec2f {x: 0.0, y: 0.0}
+    }
+}
 
 impl Vec3f {
     pub fn mag(self) -> f32 {
@@ -44,6 +50,14 @@ impl Vec3f {
             x: self.x.abs(),
             y: self.y.abs(),
             z: self.z.abs()
+        }
+    }
+
+    pub fn clamp(self, min: f32, max: f32) -> Self {
+        Vec3f {
+            x: self.x.clamp(min, max),
+            y: self.y.clamp(min, max),
+            z: self.z.clamp(min, max)
         }
     }
 
@@ -224,6 +238,16 @@ impl std::fmt::Display for Vec2f {
 impl From<Vec3f> for [f32; 3] {
     fn from(v: Vec3f) -> Self {
         [v.x, v.y, v.z]
+    }
+}
+
+impl From<[f32; 3]> for Vec3f {
+    fn from(v: [f32; 3]) -> Self {
+        Vec3f {
+            x: v[0],
+            y: v[1],
+            z: v[2]
+        }
     }
 }
 
