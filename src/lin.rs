@@ -16,15 +16,56 @@ pub struct Vec3f {
     pub z: f32
 }
 
-pub type Mat3f = [f32; 9];
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+#[serde(into = "[f32; 4]", from = "[f32; 4]")]
+pub struct Vec4f {
+    pub w: f32,
+    pub x: f32,
+    pub y: f32,
+    pub z: f32
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct Mat3f([f32; 9]);
 
 impl Vec2f {
-    pub fn zero() -> Vec2f {
+    pub fn zero() -> Self {
         Vec2f {x: 0.0, y: 0.0}
     }
 }
 
+impl Vec4f {
+    pub fn forward() -> Self {
+        Vec4f {
+            w: 0.0,
+            x: 0.0,
+            y: 1.0,
+            z: 0.0
+        }
+    }
+
+    pub fn proj(self) -> Vec3f {
+        Vec3f {
+            x: self.x,
+            y: self.y,
+            z: self.z
+        }
+    }
+}
+
 impl Vec3f {
+    pub fn forward() -> Self {
+        Vec3f {x: 0.0, y: 1.0, z: 0.0}
+    }
+
+    pub fn right() -> Self {
+        Vec3f {x: 1.0, y: 0.0, z: 0.0}
+    }
+
+    pub fn up() -> Self {
+        Vec3f {x: 0.0, y: 0.0, z: 1.0}
+    }
+    
     pub fn mag(self) -> f32 {
         (self.x.powi(2) + self.y.powi(2) + self.z.powi(2)).sqrt()
     }
@@ -94,6 +135,34 @@ impl Vec3f {
             y: 0.0,
             z: 0.0
         }
+    }
+}
+
+impl Mat3f {
+    pub fn rotate_dir(dir: Vec4f) -> (Mat3f, Mat3f, Mat3f) {
+        let n_dir = dir.proj().norm();
+
+        let rot_x = Mat3f([
+            1.0, 0.0, 0.0,
+            0.0, n_dir.y, -n_dir.z,
+            0.0, n_dir.z, n_dir.y
+        ]);
+
+        let cw = (1.0 - dir.w.powi(2)).sqrt();
+
+        let rot_y = Mat3f([
+            cw, 0.0, dir.w,
+            0.0, 1.0, 0.0,
+            -dir.w, 0.0, cw
+        ]);
+
+        let rot_z = Mat3f([
+            n_dir.y, n_dir.x, 0.0,
+            -n_dir.x, n_dir.y, 0.0,
+            0.0, 0.0, 1.0
+        ]);
+
+        (rot_x, rot_y, rot_z)
     }
 }
 
@@ -216,9 +285,9 @@ impl std::ops::Mul<Vec3f> for Mat3f {
 
     fn mul(self, rhs: Vec3f) -> Self::Output {
         Vec3f {
-            x: self[0] * rhs.x + self[1] * rhs.y + self[2] * rhs.z,
-            y: self[3] * rhs.x + self[4] * rhs.y + self[5] * rhs.z,
-            z: self[6] * rhs.x + self[7] * rhs.y + self[8] * rhs.z,
+            x: self.0[0] * rhs.x + self.0[1] * rhs.y + self.0[2] * rhs.z,
+            y: self.0[3] * rhs.x + self.0[4] * rhs.y + self.0[5] * rhs.z,
+            z: self.0[6] * rhs.x + self.0[7] * rhs.y + self.0[8] * rhs.z,
         }
     }
 }
@@ -257,6 +326,23 @@ impl Default for Vec3f {
     }
 }
 
+impl From<Vec4f> for [f32; 4] {
+    fn from(v: Vec4f) -> Self {
+        [v.w, v.x, v.y, v.z]
+    }
+}
+
+impl From<[f32; 4]> for Vec4f {
+    fn from(v: [f32; 4]) -> Self {
+        Vec4f {
+            w: v[0],
+            x: v[1],
+            y: v[2],
+            z: v[3]
+        }
+    }
+}
+
 pub trait ParseFromStrIter<'a> {
     fn parse<I: Iterator<Item = &'a String>>(it: &mut I) -> Self;
 }
@@ -264,6 +350,17 @@ pub trait ParseFromStrIter<'a> {
 impl <'a> ParseFromStrIter<'a> for Vec3f {
     fn parse<I: Iterator<Item = &'a String>>(it: &mut I) -> Self {
         Vec3f {
+            x: <f32>::parse(it),
+            y: <f32>::parse(it),
+            z: <f32>::parse(it)
+        }
+    }
+}
+
+impl <'a> ParseFromStrIter<'a> for Vec4f {
+    fn parse<I: Iterator<Item = &'a String>>(it: &mut I) -> Self {
+        Vec4f {
+            w: <f32>::parse(it),
             x: <f32>::parse(it),
             y: <f32>::parse(it),
             z: <f32>::parse(it)

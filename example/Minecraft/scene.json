@@ -1,35 +1,29 @@
 {
     "renderer": [
         {
+            "type": "box",
+            "sizes": [1, 1, 1],
+            "pos": [0, 2, 0],
+            "dir": [0, 0.5, 0.5, 0],
             "mat": {
                 "rough": 1,
                 "tex": {
                     "inl": "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"
                 }
-            },
-            "pos": [0, 1, 0],
-            "sizes": [1, 1, 1],
-            "type": "box"
+            }
         },
         {
+            "type": "plane",
+            "n": [0, 0, 1],
+            "pos": [0, 0, -0.5],
             "mat": {
                 "rough": 1,
                 "tex": {
                     "inl": "H4sIAAAAAAAC/81ZS27cMAy9i9eDwJItyZ6rBFm0KIoeoEUXQe5eyyrGSiv18VFs0VUMh0NR/Dw+0q/Tx2+fp/vr9H26u3ibvpQ/nz58ne7Pz/PTuuzehXSbn+I+uz2648mnNcz75l9uh8DiluRDOF6HuEWf8pNbi+wpADVQAqtzKabfjUhxTXM6rTgewp6tCD6Lb0XHehoafzllO16vRcU252NOgYeod6diNyZxOmYTX+Xy5+MmnD9DET/ep+PlYdKaRWoVtTM6ZsCrXOalx3nLGYYosxMpEAQVukJw0fqUdgLD1EEhw5nzLmZh23wJ2WlyFGZOR0dlRnFuP6TjQccaDPK7KXCFoxMvBnGuTOhc8/Jk/p3jHdnUQEGJWqJOu3ZSVb78+/BvkFKVBBOO2t3DWYlSQgBFtSfy2zn0007bgCSugICIoQiUKNco5WnzU63MBoSGMBxMTghgH7fqTgWiNqmtDyYcEuCHdsI+ikImoFf/5qqNi/QiIqhCJflBfRI6q9kG6xozYBQwOUn230QsA2IDS3mUUwzH08INgvKAkGVNXZr8iKP+lh2EmtUk8wejQwtITK+TJyfT0DF2a+9J8R88dCLoHqb+kHRjHjg+ZWHYhVMvg4jK3Lfo1gacYRj7mazSjs0CojhKr7TtnnIVnHGYgFqua7gG1uRvgimKwtTxPiqoML/kTPVZogQqS+T90hLMprn2IcXkIW9pZ3zb6YHBdrRHYHjmdcI71s6RvOYqUTnA0OQIKYHERbn3V3Kjzjqkc1O0Z6OwALN/HXBS4VDydltwNmCaBq7SgQ0DaAY7Mu5DUJvwji8luZmSsOJ/YwXqDsNUkO7bA/N/bCMEPOPF0DDrVs5A46tAZQOjNh3wI43FQDk8cQ67anxpNEy+/uiFl7e3Hw4t5HJvIQAA"
                 }
-            },
-            "n": [0, 0, 1],
-            "pos": [0, 0, -0.5],
-            "type": "plane"
+            }
         }
     ],
-    "light": [
-        {
-            "type": "dir",
-            "dir": [0.5, 0.5, -0.5],
-            "pwr": 1.0,
-            "color": [0.98, 0.86, 0.15]
-        }
-    ],
-    "sky": [0.33, 0.66, 1]
+    "light": [],
+    "sky": [0.5, 0.5, 0.5]
 }

@@ -5,7 +5,7 @@ use flate2::write::GzEncoder;
 use std::io::prelude::{Read, Write};
 use serde::{Serialize, Deserialize};
 
-use crate::lin::{Vec3f, Vec2f, Mat3f, ParseFromStrIter};
+use crate::lin::{Vec3f, Vec2f, Mat3f, ParseFromStrIter, Vec4f};
 
 const E: f32 = 0.0001;
 
@@ -15,7 +15,6 @@ pub struct RayTracer {
     pub sample: usize,
     pub loss: f32,
 }
-
 
 #[derive(Debug, Clone)]
 pub struct Ray {
@@ -36,7 +35,7 @@ pub struct RayHit<'a> {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Camera {
     pub pos: Vec3f,
-    pub dir: Vec3f,
+    pub dir: Vec4f,
     pub fov: f32,
     pub gamma: f32,
     pub exp: f32
@@ -100,6 +99,9 @@ pub struct Renderer {
 
     #[serde(default)]
     pub pos: Vec3f,
+
+    #[serde(default = "Vec4f::forward")]
+    pub dir: Vec4f,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -263,8 +265,12 @@ impl Renderer {
                 None
             },
             RendererKind::Box{sizes} => {
-                let m = ray.dir.recip();
-                let n = (ray.orig - self.pos).hadam(m);
+                let rot = Mat3f::rotate_dir(self.dir);
+                let n_orig = self.pos + rot.0 * (rot.1 * (rot.2 * (ray.orig - self.pos)));
+                let n_dir = rot.0 * (rot.1 * (rot.2 * ray.dir));
+
+                let m = n_dir.recip();
+                let n = (n_orig - self.pos).hadam(m);
                 let k = (sizes / 2.0).hadam(m.abs());
 
                 let a = -n - k;
@@ -287,29 +293,32 @@ impl Renderer {
             RendererKind::Sphere{..} => (hit - self.pos).norm(),
             RendererKind::Plane{n} => n.norm(),
             RendererKind::Box{sizes} => {
-                let p = (hit - self.pos).hadam(sizes.recip() * 2.0);
+                let rot = Mat3f::rotate_dir(self.dir);
+                let n_hit = self.pos + rot.0 * (rot.1 * (rot.2 * (hit - self.pos)));
+
+                let p = (n_hit - self.pos).hadam(sizes.recip() * 2.0);
 
                 let pos_r = 1.0-E..1.0+E;
                 let neg_r = -1.0-E..-1.0+E;
 
                 if pos_r.contains(&p.x) {
                     // right
-                    return Vec3f{x: 1.0, y: 0.0, z: 0.0};
+                    return Vec3f::right()
                 } else if neg_r.contains(&p.x) {
                     // left
-                    return Vec3f{x: -1.0, y: 0.0, z: 0.0};
+                    return -Vec3f::right()
                 } else if pos_r.contains(&p.y) {
                     // forward
-                    return Vec3f{x: 0.0, y: 1.0, z: 0.0};
+                    return Vec3f::forward()
                 } else if neg_r.contains(&p.y) {
                     // backward
-                    return Vec3f{x: 0.0, y: -1.0, z: 0.0};
+                    return -Vec3f::forward()
                 } if pos_r.contains(&p.z) {
                     // top
-                    return Vec3f{x: 0.0, y: 0.0, z: 1.0};
+                    return Vec3f::up()
                 } else if neg_r.contains(&p.z) {
                     // bottom
-                    return Vec3f{x: 0.0, y: 0.0, z: -1.0};
+                    return -Vec3f::up()
                 } else {
                     // error
                     Vec3f::zero()
@@ -335,7 +344,10 @@ impl Renderer {
                 }
             },
             RendererKind::Box {sizes} => {
-                let p = (hit - self.pos).hadam(sizes.recip() * 2.0);
+                let rot = Mat3f::rotate_dir(self.dir);
+                let n_hit = self.pos + rot.0 * (rot.1 * (rot.2 * (hit - self.pos)));
+
+                let p = (n_hit - self.pos).hadam(sizes.recip() * 2.0);
 
                 let pos_r = 1.0-E..1.0+E;
                 let neg_r = -1.0-E..-1.0+E;
@@ -420,29 +432,11 @@ impl RayTracer {
             z: -uv.y
         }.norm();
 
-        let cam_dir = frame.cam.dir.norm();
-
-        // rotate direction
-        let rot_x: Mat3f = [
-            1.0, 0.0, 0.0,
-            0.0, cam_dir.y, -cam_dir.z,
-            0.0, cam_dir.z, cam_dir.y
-        ];
-
-        // let rot_y: Mat3f = [
-        //     cam_dir.x, 0.0, cam_dir.z,
-        //     0.0, 1.0, 0.0,
-        //     -cam_dir.z, 0.0, cam_dir.x
-        // ];
-
-        let rot_z: Mat3f = [
-            cam_dir.y, cam_dir.x, 0.0,
-            -cam_dir.x, cam_dir.y, 0.0,
-            0.0, 0.0, 1.0
-        ];
+        let cam_dir = frame.cam.dir;
+        let cam_rot = Mat3f::rotate_dir(cam_dir);
 
         // cast
-        Ray::cast_default(frame.cam.pos, rot_x * (rot_z * dir))
+        Ray::cast_default(frame.cam.pos, cam_rot.0 * (cam_rot.1 * (cam_rot.2 * dir)))
     }
 
     pub fn pathtrace_direct_light(scene: &Scene, hit: &RayHit) -> Option<Vec3f> {
@@ -536,7 +530,7 @@ impl <'a> From<&'a Ray> for Vec3f {
 
 impl Default for Ray {
     fn default() -> Self {
-        Ray{
+        Ray {
             orig: Vec3f::zero(),
             dir: Vec3f::zero(),
             pwr: 1.0,
@@ -549,8 +543,8 @@ impl Default for Ray {
 impl Default for Camera {
     fn default() -> Self {
         Camera {
-            pos: Vec3f{x: 0.0, y: -1.0, z: 0.0},
-            dir: Vec3f{x: 0.0, y: 1.0, z: 0.0},
+            pos: -Vec3f::forward(),
+            dir: Vec4f::forward(),
             fov: 70.0,
             gamma: 0.8,
             exp: 0.2
@@ -622,7 +616,7 @@ impl From<Vec<String>> for Camera {
         while let Some(param) = it.next() {
             match param.as_str() {
                 "pos:" => cam.pos = Vec3f::parse(&mut it),
-                "dir:" => cam.dir = Vec3f::parse(&mut it).norm(),
+                "dir:" => cam.dir = Vec4f::parse(&mut it),
                 "fov:" => cam.fov = <f32>::parse(&mut it),
                 "gamma:" => cam.gamma = <f32>::parse(&mut it),
                 "exp:" => cam.exp = <f32>::parse(&mut it),
@@ -700,6 +694,7 @@ impl From<Vec<String>> for Renderer {
                 _ => panic!("`{}` type is unxpected!", t)
             },
             pos: Vec3f::default(),
+            dir: Vec4f::forward(),
             mat: Material::default()
         };
 
@@ -736,6 +731,7 @@ impl From<Vec<String>> for Renderer {
             // common params
             match param.as_str() {
                 "pos:" => obj.pos = Vec3f::parse(&mut it),
+                "dir:" => obj.dir = Vec4f::parse(&mut it),
                 "albedo:" => obj.mat.albedo = Vec3f::parse(&mut it),
                 "rough:" => obj.mat.rough = <f32>::parse(&mut it),
                 "metal:" => obj.mat.metal = <f32>::parse(&mut it),
