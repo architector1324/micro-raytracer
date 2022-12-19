@@ -28,6 +28,9 @@ pub struct Vec4f {
 #[derive(Debug, Clone, Copy)]
 pub struct Mat3f([f32; 9]);
 
+#[derive(Debug, Clone, Copy)]
+pub struct Mat4f(pub [f32; 16]);
+
 impl Vec2f {
     pub fn zero() -> Self {
         Vec2f {x: 0.0, y: 0.0}
@@ -51,6 +54,14 @@ impl Vec4f {
             z: self.z
         }
     }
+
+    pub fn mag(self) -> f32 {
+        (self.w.powi(2) + self.x.powi(2) + self.y.powi(2) + self.z.powi(2)).sqrt()
+    }
+
+    pub fn norm(self) -> Self {
+        self * self.mag().recip()
+    }
 }
 
 impl Vec3f {
@@ -64,6 +75,14 @@ impl Vec3f {
 
     pub fn up() -> Self {
         Vec3f {x: 0.0, y: 0.0, z: 1.0}
+    }
+
+    pub fn cross(self, rhs: Vec3f) -> Vec3f {
+        Vec3f {
+            x: self.y * rhs.z - self.z * rhs.y,
+            y: self.z * rhs.x - self.x * rhs.z,
+            z: self.x * rhs.y - self.y * rhs.x
+        }
     }
     
     pub fn mag(self) -> f32 {
@@ -139,30 +158,60 @@ impl Vec3f {
 }
 
 impl Mat3f {
-    pub fn rotate_dir(dir: Vec4f) -> (Mat3f, Mat3f, Mat3f) {
+    pub fn rotate_x(dir: Vec4f) -> Mat3f {
         let n_dir = dir.proj().norm();
 
-        let rot_x = Mat3f([
+        Mat3f([
             1.0, 0.0, 0.0,
             0.0, n_dir.y, -n_dir.z,
             0.0, n_dir.z, n_dir.y
-        ]);
+        ])
+    }
 
+    pub fn rotate_y(dir: Vec4f) -> Mat3f {
         let cw = (1.0 - dir.w.powi(2)).sqrt();
 
-        let rot_y = Mat3f([
+        Mat3f([
             cw, 0.0, dir.w,
             0.0, 1.0, 0.0,
             -dir.w, 0.0, cw
-        ]);
+        ])
+    }
 
-        let rot_z = Mat3f([
+    pub fn rotate_z(dir: Vec4f) -> Mat3f {
+        let n_dir = dir.proj().norm();
+
+        Mat3f([
             n_dir.y, n_dir.x, 0.0,
             -n_dir.x, n_dir.y, 0.0,
             0.0, 0.0, 1.0
-        ]);
+        ])
+    }
+}
 
-        (rot_x, rot_y, rot_z)
+impl Mat4f {
+    pub fn lookat(dir: Vec4f, up: Vec3f) -> Mat4f {
+        let fwd = dir.proj().norm();
+        let right = fwd.cross(up).norm();
+        let n_up = right.cross(fwd);
+
+        Mat4f([
+            right.x, -right.y, right.z, 0.0,
+            -fwd.x, fwd.y, -fwd.z, 0.0,
+            n_up.x, -n_up.y, n_up.z, 0.0,
+            0.0, 0.0, 0.0, 1.0
+        ])
+    }
+}
+
+impl std::ops::Mul<Vec3f> for Mat4f {
+    type Output = Vec3f;
+    fn mul(self, rhs: Vec3f) -> Self::Output {
+        Vec3f {
+            x: self.0[0] * rhs.x + self.0[1] * rhs.y + self.0[2] * rhs.z,
+            y: self.0[4] * rhs.x + self.0[5] * rhs.y + self.0[6] * rhs.z,
+            z: self.0[8] * rhs.x + self.0[9] * rhs.y + self.0[10] * rhs.z,
+        }
     }
 }
 
@@ -225,6 +274,18 @@ impl std::ops::Mul<f32> for Vec3f {
     type Output = Vec3f;
     fn mul(self, rhs: f32) -> Self::Output {
         Vec3f {
+            x: self.x * rhs,
+            y: self.y * rhs,
+            z: self.z * rhs
+        }
+    }
+}
+
+impl std::ops::Mul<f32> for Vec4f {
+    type Output = Vec4f;
+    fn mul(self, rhs: f32) -> Self::Output {
+        Vec4f {
+            w: self.w * rhs,
             x: self.x * rhs,
             y: self.y * rhs,
             z: self.z * rhs
@@ -301,6 +362,12 @@ impl std::fmt::Display for Vec3f {
 impl std::fmt::Display for Vec2f {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!("({} {})", self.x, self.y))
+    }
+}
+
+impl std::fmt::Display for Vec4f {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!("({} {} {} {})", self.w, self.x, self.y, self.z))
     }
 }
 

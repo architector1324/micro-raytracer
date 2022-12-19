@@ -5,7 +5,7 @@ use flate2::write::GzEncoder;
 use std::io::prelude::{Read, Write};
 use serde::{Serialize, Deserialize};
 
-use crate::lin::{Vec3f, Vec2f, Mat3f, ParseFromStrIter, Vec4f};
+use crate::lin::{Vec3f, Vec2f, Mat3f, Mat4f, ParseFromStrIter, Vec4f};
 
 const E: f32 = 0.0001;
 
@@ -234,10 +234,16 @@ impl Renderer {
     pub fn intersect(&self, ray: &Ray) -> Option<(f32, f32)> {
         match self.kind {
             RendererKind::Sphere{r} => {
-                let o = ray.orig - self.pos;
+                let rot_y = Mat3f::rotate_y(self.dir);
+                let look = Mat4f::lookat(self.dir, Vec3f::up());
 
-                let a = ray.dir * ray.dir;
-                let b = 2.0 * (o * ray.dir);
+                let n_orig = self.pos + rot_y * (look * (ray.orig - self.pos));
+                let n_dir = rot_y * (look * ray.dir);
+
+                let o = n_orig - self.pos;
+
+                let a = n_dir * n_dir;
+                let b = 2.0 * (o * n_dir);
                 let c = o * o - r.powi(2);
 
                 let disc = b.powi(2) - 4.0 * a * c;
@@ -265,9 +271,11 @@ impl Renderer {
                 None
             },
             RendererKind::Box{sizes} => {
-                let rot = Mat3f::rotate_dir(self.dir);
-                let n_orig = self.pos + rot.0 * (rot.1 * (rot.2 * (ray.orig - self.pos)));
-                let n_dir = rot.0 * (rot.1 * (rot.2 * ray.dir));
+                let rot_y = Mat3f::rotate_y(self.dir);
+                let look = Mat4f::lookat(self.dir, Vec3f::up());
+
+                let n_orig = self.pos + rot_y * (look * (ray.orig - self.pos));
+                let n_dir = rot_y * (look * ray.dir);
 
                 let m = n_dir.recip();
                 let n = (n_orig - self.pos).hadam(m);
@@ -293,8 +301,10 @@ impl Renderer {
             RendererKind::Sphere{..} => (hit - self.pos).norm(),
             RendererKind::Plane{n} => n.norm(),
             RendererKind::Box{sizes} => {
-                let rot = Mat3f::rotate_dir(self.dir);
-                let n_hit = self.pos + rot.0 * (rot.1 * (rot.2 * (hit - self.pos)));
+                let rot_y = Mat3f::rotate_y(self.dir);
+                let look = Mat4f::lookat(self.dir, Vec3f::up());
+
+                let n_hit = self.pos + rot_y * (look * (hit - self.pos));
 
                 let p = (n_hit - self.pos).hadam(sizes.recip() * 2.0);
 
@@ -330,22 +340,30 @@ impl Renderer {
     pub fn to_uv(&self, hit: Vec3f) -> Vec2f {
         match self.kind {
             RendererKind::Sphere{..} => {
-                let v = (hit - self.pos).norm();
+                let rot_y = Mat3f::rotate_y(self.dir);
+                let look = Mat4f::lookat(self.dir, Vec3f::up());
+                let n_hit = self.pos + rot_y * (look * (hit - self.pos));
+
+                let v = (n_hit - self.pos).norm();
                 Vec2f {
                     x: 0.5 + 0.5 * v.x.atan2(-v.y) / std::f32::consts::PI,
                     y: 0.5 - 0.5 * v.z
                 }
             },
             RendererKind::Plane{..} => {
-                let v = hit;
+                let rot_y = Mat3f::rotate_y(self.dir);
+                let look = Mat4f::lookat(self.dir, Vec3f::up());
+                let v = rot_y * (look * hit);
                 Vec2f {
                     x: 0.5 + v.x.rem_euclid(0.5).abs(),
                     y: 0.5 - v.y.rem_euclid(0.5).abs()
                 }
             },
             RendererKind::Box {sizes} => {
-                let rot = Mat3f::rotate_dir(self.dir);
-                let n_hit = self.pos + rot.0 * (rot.1 * (rot.2 * (hit - self.pos)));
+                let rot_y = Mat3f::rotate_y(self.dir);
+                let look = Mat4f::lookat(self.dir, Vec3f::up());
+
+                let n_hit = self.pos + rot_y * (look * (hit - self.pos));
 
                 let p = (n_hit - self.pos).hadam(sizes.recip() * 2.0);
 
@@ -433,10 +451,11 @@ impl RayTracer {
         }.norm();
 
         let cam_dir = frame.cam.dir;
-        let cam_rot = Mat3f::rotate_dir(cam_dir);
+        let look = Mat4f::lookat(cam_dir, Vec3f::up());
+        let rot_y = Mat3f::rotate_y(cam_dir);
 
         // cast
-        Ray::cast_default(frame.cam.pos, cam_rot.0 * (cam_rot.1 * (cam_rot.2 * dir)))
+        Ray::cast_default(frame.cam.pos, rot_y * (look * dir))
     }
 
     pub fn pathtrace_direct_light(scene: &Scene, hit: &RayHit) -> Option<Vec3f> {
