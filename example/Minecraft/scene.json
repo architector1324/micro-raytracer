@@ -15,6 +15,36 @@
             }
         },
         {
+            "type": "box",
+            "sizes": [0.125, 0.125, 0.625],
+            "pos": [0, 1.35, 0],
+            "dir": [0, 0, 1, -0.8],
+            "mat": {
+                "rough": 1,
+                "tex": {
+                    "inl": "H4sIAAAAAAAC/+1X22rDMAz9Fz+HIsnyLb9S+rAxxj5gYw+l/z5L8aAd3RaoN7euAwFJSOeYI1tO9ubx7dnMe/Nu5jiZFzNbmMzTw6uZt1vYwFTe3fTFQ7UiB3Ax2pOg8xAiWz5bV8cb7PfLXsgSofPpKIaDdbBesF/bZ/6swP9kwMaTdZRYVsspgk1E2bRoAzmnGUyBHaQoYUYMnsUktQL2COJyp3KFE5DcyQwpeKWONMUuD2tc2k2SjcqIvlOU38WlBVxBdMOjmFig7xOkirA3BTLOz3mUFaOH7DKptfSTB1V+Tj2CrDiExTlSU0woZ7NTlDXiZmWjJ4mj148O0RkSYPIQO0UZ/yqnXpUPnr9YWJ2R2UayFfd+m4U1Uux6e1nlDmq0yVbcAq0ku2QOf+/tDocPtq925oIUAAA="
+                },
+                "emap": {
+                    "inl": "H4sIAAAAAAAC/+3UQQqAIBAF0LvMWmKiKPUq4qKI6ABFC/HutXARCQaRi+QvBuYh+oWBcTRuM2lHO2kpaCHdsKBpWEkbwxWLUFbcVJ9dqEipe2+FPOQhr6y81JslKMccIAj6Zp9xpVTHvWybS/twlnO3Rp/AKoGg/8p6fwAIdVOTYQ0AAA=="
+                }
+            }
+        },
+        {
+            "type": "box",
+            "sizes": [0.125, 0.125, 0.625],
+            "pos": [0, 2, 0.8],
+            "dir": [0, 0, 1, 0],
+            "mat": {
+                "rough": 1,
+                "tex": {
+                    "inl": "H4sIAAAAAAAC/+1X22rDMAz9Fz+HIsnyLb9S+rAxxj5gYw+l/z5L8aAd3RaoN7euAwFJSOeYI1tO9ubx7dnMe/Nu5jiZFzNbmMzTw6uZt1vYwFTe3fTFQ7UiB3Ax2pOg8xAiWz5bV8cb7PfLXsgSofPpKIaDdbBesF/bZ/6swP9kwMaTdZRYVsspgk1E2bRoAzmnGUyBHaQoYUYMnsUktQL2COJyp3KFE5DcyQwpeKWONMUuD2tc2k2SjcqIvlOU38WlBVxBdMOjmFig7xOkirA3BTLOz3mUFaOH7DKptfSTB1V+Tj2CrDiExTlSU0woZ7NTlDXiZmWjJ4mj148O0RkSYPIQO0UZ/yqnXpUPnr9YWJ2R2UayFfd+m4U1Uux6e1nlDmq0yVbcAq0ku2QOf+/tDocPtq925oIUAAA="
+                },
+                "emap": {
+                    "inl": "H4sIAAAAAAAC/+3UQQqAIBAF0LvMWmKiKPUq4qKI6ABFC/HutXARCQaRi+QvBuYh+oWBcTRuM2lHO2kpaCHdsKBpWEkbwxWLUFbcVJ9dqEipe2+FPOQhr6y81JslKMccIAj6Zp9xpVTHvWybS/twlnO3Rp/AKoGg/8p6fwAIdVOTYQ0AAA=="
+                }
+            }
+        },
+        {
             "type": "plane",
             "n": [0, 0, 1],
             "pos": [0, 0, -0.5],
@@ -31,11 +61,11 @@
             "type": "dir",
             "color": [1, 0.98, 0.85],
             "dir": [0.5, 0.5, -0.5],
-            "pwr": 0.6
+            "pwr": 0
         }
     ],
     "sky": {
-        "color": [0.3, 0.45, 0.58],
+        "color": [0.0745, 0.0941, 0.3843],
         "pwr": 0.4
     }
 }

@@ -37,33 +37,6 @@ impl Vec2f {
     }
 }
 
-impl Vec4f {
-    pub fn forward() -> Self {
-        Vec4f {
-            w: 0.0,
-            x: 0.0,
-            y: 1.0,
-            z: 0.0
-        }
-    }
-
-    pub fn proj(self) -> Vec3f {
-        Vec3f {
-            x: self.x,
-            y: self.y,
-            z: self.z
-        }
-    }
-
-    pub fn mag(self) -> f32 {
-        (self.w.powi(2) + self.x.powi(2) + self.y.powi(2) + self.z.powi(2)).sqrt()
-    }
-
-    pub fn norm(self) -> Self {
-        self * self.mag().recip()
-    }
-}
-
 impl Vec3f {
     pub fn forward() -> Self {
         Vec3f {x: 0.0, y: 1.0, z: 0.0}
@@ -157,6 +130,33 @@ impl Vec3f {
     }
 }
 
+impl Vec4f {
+    pub fn forward() -> Self {
+        Vec4f {
+            w: 0.0,
+            x: 0.0,
+            y: 1.0,
+            z: 0.0
+        }
+    }
+
+    pub fn proj(self) -> Vec3f {
+        Vec3f {
+            x: self.x,
+            y: self.y,
+            z: self.z
+        }
+    }
+
+    pub fn mag(self) -> f32 {
+        (self.w.powi(2) + self.x.powi(2) + self.y.powi(2) + self.z.powi(2)).sqrt()
+    }
+
+    pub fn norm(self) -> Self {
+        self * self.mag().recip()
+    }
+}
+
 impl Mat3f {
     pub fn rotate_x(dir: Vec4f) -> Mat3f {
         let n_dir = dir.proj().norm();
@@ -201,17 +201,6 @@ impl Mat4f {
             n_up.x, -n_up.y, n_up.z, 0.0,
             0.0, 0.0, 0.0, 1.0
         ])
-    }
-}
-
-impl std::ops::Mul<Vec3f> for Mat4f {
-    type Output = Vec3f;
-    fn mul(self, rhs: Vec3f) -> Self::Output {
-        Vec3f {
-            x: self.0[0] * rhs.x + self.0[1] * rhs.y + self.0[2] * rhs.z,
-            y: self.0[4] * rhs.x + self.0[5] * rhs.y + self.0[6] * rhs.z,
-            z: self.0[8] * rhs.x + self.0[9] * rhs.y + self.0[10] * rhs.z,
-        }
     }
 }
 
@@ -360,9 +349,14 @@ impl std::ops::Mul<Vec3f> for Mat3f {
     }
 }
 
-impl std::fmt::Display for Vec3f {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!("({} {} {})", self.x, self.y, self.z))
+impl std::ops::Mul<Vec3f> for Mat4f {
+    type Output = Vec3f;
+    fn mul(self, rhs: Vec3f) -> Self::Output {
+        Vec3f {
+            x: self.0[0] * rhs.x + self.0[1] * rhs.y + self.0[2] * rhs.z,
+            y: self.0[4] * rhs.x + self.0[5] * rhs.y + self.0[6] * rhs.z,
+            z: self.0[8] * rhs.x + self.0[9] * rhs.y + self.0[10] * rhs.z,
+        }
     }
 }
 
@@ -372,9 +366,21 @@ impl std::fmt::Display for Vec2f {
     }
 }
 
+impl std::fmt::Display for Vec3f {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!("({} {} {})", self.x, self.y, self.z))
+    }
+}
+
 impl std::fmt::Display for Vec4f {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!("({} {} {} {})", self.w, self.x, self.y, self.z))
+    }
+}
+
+impl Default for Vec3f {
+    fn default() -> Self {
+        Vec3f::zero()
     }
 }
 
@@ -391,12 +397,6 @@ impl From<[f32; 3]> for Vec3f {
             y: v[1],
             z: v[2]
         }
-    }
-}
-
-impl Default for Vec3f {
-    fn default() -> Self {
-        Vec3f::zero()
     }
 }
 
@@ -421,6 +421,12 @@ pub trait ParseFromStrIter<'a> {
     fn parse<I: Iterator<Item = &'a String>>(it: &mut I) -> Self;
 }
 
+impl <'a> ParseFromStrIter<'a> for f32 {
+    fn parse<I: Iterator<Item = &'a String>>(it: &mut I) -> Self {
+        it.next().unwrap().parse::<f32>().expect("should be <f32>!")
+    }
+}
+
 impl <'a> ParseFromStrIter<'a> for Vec3f {
     fn parse<I: Iterator<Item = &'a String>>(it: &mut I) -> Self {
         Vec3f {
@@ -439,11 +445,5 @@ impl <'a> ParseFromStrIter<'a> for Vec4f {
             y: <f32>::parse(it),
             z: <f32>::parse(it)
         }
-    }
-}
-
-impl <'a> ParseFromStrIter<'a> for f32 {
-    fn parse<I: Iterator<Item = &'a String>>(it: &mut I) -> Self {
-        it.next().unwrap().parse::<f32>().expect("should be <f32>!")
     }
 }
