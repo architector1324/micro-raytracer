@@ -57,7 +57,7 @@ struct CLI {
     #[arg(long, value_names = ["pos: <f32 f32 f32>", "dir: <f32 f32 f32 f32>", "fov: <f32>", "gamma: <f32>", "exp: <f32>"], num_args = 1..,  allow_negative_numbers = true, next_line_help = true, help = "Add camera to the scene")]
     cam: Option<Vec<String>>,
 
-    #[arg(long, value_names = ["<type: sphere(sph)|plane(pln)|box>", "param: <sphere: r: <f32>>|<plane: n: <f32 f32 f32>>|<box: size: <f32 f32 f32>>", "pos: <f32 f32 f32>", "dir: <f32 f32 f32 f32>", "albedo: <f32 f32 f32>", "rough: <f32>", "metal: <f32>", "glass: <f32>", "opacity: <f32>", "emit: <f32>", "tex: <FILE.ext|<base64 str>>"], num_args = 0.., action = clap::ArgAction::Append, allow_negative_numbers = true, next_line_help = true, help = "Add renderer to the scene")]
+    #[arg(long, value_names = ["<type: sphere(sph)|plane(pln)|box>", "param: <sphere: r: <f32>>|<plane: n: <f32 f32 f32>>|<box: size: <f32 f32 f32>>", "pos: <f32 f32 f32>", "dir: <f32 f32 f32 f32>", "albedo: <f32 f32 f32>", "rough: <f32>", "metal: <f32>", "glass: <f32>", "opacity: <f32>", "emit: <f32>", "tex: <FILE.ext|<base64 str>>", "rmap: <FILE.ext|<base64 str>>", "mmap: <FILE.ext|<base64 str>>", "gmap: <FILE.ext|<base64 str>>", "omap: <FILE.ext|<base64 str>>", "emap: <FILE.ext|<base64 str>>"], num_args = 0.., action = clap::ArgAction::Append, allow_negative_numbers = true, next_line_help = true, help = "Add renderer to the scene")]
     obj: Option<Vec<String>>,
 
     #[arg(long, value_names = ["param: <point(pt): <f32 f32 f32>>|<dir: <f32 f32 f32>>", "pwr: <f32>", "col: <f32 f32 f32>"], num_args = 0.., action = clap::ArgAction::Append, allow_negative_numbers = true, next_line_help = true, help = "Add light source to the scene")]
@@ -164,6 +164,21 @@ fn main() {
         for obj in objs {
             if let Some(tex) = &mut obj.mat.tex {
                 tex.to_buffer();
+            }
+            if let Some(rmap) = &mut obj.mat.rmap {
+                rmap.to_buffer();
+            }
+            if let Some(mmap) = &mut obj.mat.mmap {
+                mmap.to_buffer();
+            }
+            if let Some(gmap) = &mut obj.mat.gmap {
+                gmap.to_buffer();
+            }
+            if let Some(omap) = &mut obj.mat.omap {
+                omap.to_buffer();
+            }
+            if let Some(emap) = &mut obj.mat.emap {
+                emap.to_buffer();
             }
         }
     }

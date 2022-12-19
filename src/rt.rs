@@ -77,7 +77,13 @@ pub struct Material {
     pub glass: f32,
     pub opacity: f32,
     pub emit: f32,
+
     pub tex: Option<Texture>,
+    pub rmap: Option<Texture>, // rough map
+    pub mmap: Option<Texture>, // metal map
+    pub gmap: Option<Texture>, // glass map
+    pub omap: Option<Texture>, // opacity map
+    pub emap: Option<Texture>, // emit map
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -142,16 +148,32 @@ impl Ray {
     }
 
     pub fn reflect(&self, rt: &RayTracer, hit: &RayHit) -> Ray {
-        let norm = (hit.norm.0 + Vec3f::rand(hit.obj.mat.rough)).norm();
+        let mut rough = hit.obj.get_rough((&hit.ray.0).into());
+        let opacity = hit.obj.get_opacity((&hit.ray.0).into());
+
+        // 75% chance to diffuse for dielectric
+        if hit.obj.mat.metal == 0.0 && opacity != 0.0 && rand::thread_rng().gen_bool((1.0 - rough).min(0.75).into()) {
+            rough = 1.0;
+        }
+
+        let norm = (hit.norm.0 + Vec3f::rand(rough)).norm();
         let dir = self.dir.reflect(norm).norm();
 
         Ray::cast(self.into(), dir, self.pwr * (1.0 - rt.loss.min(1.0)), self.bounce + 1)
     }
 
     pub fn refract(&self, rt:&RayTracer, hit: &RayHit) -> Option<Ray> {
-        let norm = (hit.norm.1 + Vec3f::rand(hit.obj.mat.rough)).norm();
+        let mut rough = hit.obj.get_rough((&hit.ray.0).into());
+        let opacity = hit.obj.get_opacity((&hit.ray.0).into());
 
-        let eta = 1.0 + hit.obj.mat.glass / 2.0;
+        // 75% chance to diffuse for dielectric
+        if hit.obj.mat.metal == 0.0 && opacity != 0.0 && rand::thread_rng().gen_bool((1.0 - rough).min(0.75).into()) {
+            rough = 1.0;
+        }
+
+        let norm = (hit.norm.1 + Vec3f::rand(rough)).norm();
+
+        let eta = 1.0 + hit.obj.get_glass((&hit.ray.0).into()) / 2.0;
         let dir = self.dir.refract(eta, norm)?.norm();
 
         Some(Ray::cast(self.into(), dir, self.pwr * (1.0 - rt.loss.min(1.0)), self.bounce + 1))
@@ -420,6 +442,41 @@ impl Renderer {
         }
         self.mat.albedo
     }
+
+    pub fn get_rough(&self, v: Vec3f) -> f32 {
+        if let Some(tex) = &self.mat.rmap {
+            return tex.get_color(self.to_uv(v)).x
+        }
+        self.mat.rough
+    }
+
+    pub fn get_metal(&self, v: Vec3f) -> f32 {
+        if let Some(tex) = &self.mat.mmap {
+            return tex.get_color(self.to_uv(v)).x;
+        }
+        self.mat.metal
+    }
+
+    pub fn get_glass(&self, v: Vec3f) -> f32 {
+        if let Some(tex) = &self.mat.gmap {
+            return tex.get_color(self.to_uv(v)).x;
+        }
+        self.mat.glass
+    }
+
+    pub fn get_opacity(&self, v: Vec3f) -> f32 {
+        if let Some(tex) = &self.mat.omap {
+            return tex.get_color(self.to_uv(v)).x;
+        }
+        self.mat.opacity
+    }
+
+    pub fn get_emit(&self, v: Vec3f) -> f32 {
+        if let Some(tex) = &self.mat.emap {
+            return tex.get_color(self.to_uv(v)).x;
+        }
+        self.mat.emit
+    }
 }
 
 impl RayTracer {
@@ -476,9 +533,9 @@ impl RayTracer {
             }
 
             let diff = (l.norm() * hit.norm.0).max(0.0);
-            let spec = (hit.ray.0.dir * l.norm().reflect(hit.norm.0)).max(0.0).powi(32) * (1.0 - hit.obj.mat.rough);
+            let spec = (hit.ray.0.dir * l.norm().reflect(hit.norm.0)).max(0.0).powi(32) * (1.0 - hit.obj.get_rough((&hit.ray.0).into()));
 
-            let o_col = hit.obj.get_color((&hit.ray.0).into()) * (1.0 - hit.obj.mat.metal);
+            let o_col = hit.obj.get_color((&hit.ray.0).into()) * (1.0 - hit.obj.get_metal((&hit.ray.0).into()));
 
             // col += ((o_col * diff).hadam(light.color) + spec) * light.pwr / (l.mag().powi(2));
             col += ((o_col * diff).hadam(light.color) + spec) * light.pwr;
@@ -489,16 +546,19 @@ impl RayTracer {
 
     pub fn pathtrace_indirect_light(&self, scene: &Scene, hit: &RayHit) -> Vec3f {
         let mut next_ray = hit.ray.0.reflect(self, hit);
+        let opacity = hit.obj.get_opacity((&hit.ray.0).into());
 
         // 15% chance to reflect for transparent material
-        if rand::thread_rng().gen_bool((1.0 - hit.obj.mat.opacity).min(0.85).into()) {
+        if rand::thread_rng().gen_bool((1.0 - opacity).min(0.85).into()) {
             if let Some(r) = hit.ray.1.refract(self, hit) {
                 next_ray = r;
             }
         }
 
         let next_col = self.pathtrace(scene, &mut next_ray);
-        let col = next_col / 2.0 + hit.obj.get_color((&hit.ray.0).into()).hadam(next_col);
+        let curr_col = hit.obj.get_color((&hit.ray.0).into());
+
+        let col = 0.5 * next_col + curr_col.hadam(next_col);
 
         col * next_ray.pwr
     }
@@ -512,7 +572,9 @@ impl RayTracer {
         // intersect
         if let Some(hit) = RayTracer::closest_hit(scene, ray) {
             // emit
-            if rand::thread_rng().gen_bool(hit.obj.mat.emit.into()) {
+            let emit = hit.obj.get_emit((&hit.ray.0).into());
+
+            if rand::thread_rng().gen_bool(emit.into()) {
                 return hit.obj.get_color((&hit.ray.0).into());
             }
 
@@ -600,7 +662,12 @@ impl Default for Material {
             glass: 0.0,
             opacity: 1.0,
             emit: 0.0,
-            tex: None
+            tex: None,
+            rmap: None,
+            mmap: None,
+            gmap: None,
+            omap: None,
+            emap: None
         }
     }
 }
@@ -765,7 +832,52 @@ impl From<Vec<String>> for Renderer {
                     } else {
                         Some(Texture::InlineBase64(s))
                     }
-                }, 
+                },
+                "rmap:" => {
+                    let s = String::from(it.next().unwrap());
+
+                    obj.mat.rmap = if s.contains(".") {
+                        Some(Texture::File(s))
+                    } else {
+                        Some(Texture::InlineBase64(s))
+                    }
+                },
+                "mmap:" => {
+                    let s = String::from(it.next().unwrap());
+
+                    obj.mat.mmap = if s.contains(".") {
+                        Some(Texture::File(s))
+                    } else {
+                        Some(Texture::InlineBase64(s))
+                    }
+                },
+                "gmap:" => {
+                    let s = String::from(it.next().unwrap());
+
+                    obj.mat.gmap = if s.contains(".") {
+                        Some(Texture::File(s))
+                    } else {
+                        Some(Texture::InlineBase64(s))
+                    }
+                },
+                "omap:" => {
+                    let s = String::from(it.next().unwrap());
+
+                    obj.mat.omap = if s.contains(".") {
+                        Some(Texture::File(s))
+                    } else {
+                        Some(Texture::InlineBase64(s))
+                    }
+                },
+                "emap:" => {
+                    let s = String::from(it.next().unwrap());
+
+                    obj.mat.emap = if s.contains(".") {
+                        Some(Texture::File(s))
+                    } else {
+                        Some(Texture::InlineBase64(s))
+                    }
+                },
                 _ => {
                     if !is_type_param {
                         panic!("`{}` param for `{}` is unxpected!", param, t);

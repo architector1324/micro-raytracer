@@ -281,6 +281,13 @@ impl std::ops::Mul<f32> for Vec3f {
     }
 }
 
+impl std::ops::Mul<Vec3f> for f32 {
+    type Output = Vec3f;
+    fn mul(self, rhs: Vec3f) -> Self::Output {
+        rhs * self
+    }
+}
+
 impl std::ops::Mul<f32> for Vec4f {
     type Output = Vec4f;
     fn mul(self, rhs: f32) -> Self::Output {

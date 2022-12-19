@@ -70,7 +70,7 @@ Options:
           Output image SSAAx antialiasing
       --cam <pos: <f32 f32 f32>> <dir: <f32 f32 f32 f32>> <fov: <f32>> <gamma: <f32>> <exp: <f32>>...
           Add camera to the scene
-      --obj [<<type: sphere(sph)|plane(pln)|box>> <param: <sphere: r: <f32>>|<plane: n: <f32 f32 f32>>|<box: size: <f32 f32 f32>>> <pos: <f32 f32 f32>> <dir: <f32 f32 f32 f32>> <albedo: <f32 f32 f32>> <rough: <f32>> <metal: <f32>> <glass: <f32>> <opacity: <f32>> <emit: <f32>> <tex: <FILE.ext|<base64 str>>>...]
+      --obj [<<type: sphere(sph)|plane(pln)|box>> <param: <sphere: r: <f32>>|<plane: n: <f32 f32 f32>>|<box: size: <f32 f32 f32>>> <pos: <f32 f32 f32>> <dir: <f32 f32 f32 f32>> <albedo: <f32 f32 f32>> <rough: <f32>> <metal: <f32>> <glass: <f32>> <opacity: <f32>> <emit: <f32>> <tex: <FILE.ext|<base64 str>>> <rmap: <FILE.ext|<base64 str>>>...]
           Add renderer to the scene
       --light [<param: <point(pt): <f32 f32 f32>>|<dir: <f32 f32 f32>>> <pwr: <f32>> <col: <f32 f32 f32>>...]
           Add light source to the scene
