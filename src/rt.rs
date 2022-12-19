@@ -130,12 +130,18 @@ pub struct Light {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+pub struct Sky {
+    pub color: Vec3f,
+    pub pwr: f32
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Scene {
     pub renderer: Option<Vec<Renderer>>,
     pub light: Option<Vec<Light>>,
 
     #[serde(default)]
-    pub sky: Vec3f
+    pub sky: Sky
 }
 
 impl Ray {
@@ -566,7 +572,7 @@ impl RayTracer {
     pub fn pathtrace<'a>(&self, scene: &'a Scene, ray: &Ray) -> Vec3f {
         // check bounce
         if ray.bounce > self.bounce {
-            return scene.sky
+            return scene.sky.color * scene.sky.pwr
         }
 
         // intersect
@@ -584,8 +590,13 @@ impl RayTracer {
 
             return d_col + l_col.unwrap_or(Vec3f::default());
         }
-
-        scene.sky
+        
+        // sky
+        if ray.bounce == 0 {
+            return scene.sky.color
+        } else {
+            scene.sky.color * scene.sky.pwr
+        }
     }
 
     pub fn raytrace(&self, coord: Vec2f, scene: &Scene, frame: &Frame) -> Vec3f {
@@ -643,12 +654,21 @@ impl Default for Frame {
     }
 }
 
+impl Default for Sky {
+    fn default() -> Self {
+        Sky {
+            color: Vec3f::default(),
+            pwr: 0.5
+        }
+    }
+}
+
 impl Default for Scene {
     fn default() -> Self {
         Scene {
             renderer: None,
             light: None,
-            sky: Vec3f::default()
+            sky: Sky::default()
         }
     }
 }

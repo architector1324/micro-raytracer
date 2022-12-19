@@ -63,7 +63,7 @@ struct CLI {
     #[arg(long, value_names = ["param: <point(pt): <f32 f32 f32>>|<dir: <f32 f32 f32>>", "pwr: <f32>", "col: <f32 f32 f32>"], num_args = 0.., action = clap::ArgAction::Append, allow_negative_numbers = true, next_line_help = true, help = "Add light source to the scene")]
     light: Option<Vec<String>>,
 
-    #[arg(long, value_names = ["r", "g", "b"], next_line_help = true, action = clap::ArgAction::Append, help="Scene sky color")]
+    #[arg(long, value_names = ["r", "g", "b", "pwr"], next_line_help = true, action = clap::ArgAction::Append, help="Scene sky color")]
     sky: Option<Vec<String>>
 }
 
@@ -130,7 +130,9 @@ fn main() {
     }
 
     if let Some(sky) = cli.sky {
-        scene.sky = Vec3f::parse(&mut sky.iter());
+        let mut it = sky.iter();
+        scene.sky.color = Vec3f::parse(&mut it);
+        scene.sky.pwr = <f32>::parse(&mut it);
     }
 
     // setup raytacer
