@@ -1,3 +1,6 @@
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
+
 use clap::Parser;
 use serde_json::json;
 
@@ -34,6 +37,9 @@ struct CLI {
 
     #[arg(short, long, next_line_help = true, help="Parallel workers count")]
     worker: Option<usize>,
+
+    #[arg(short, long, next_line_help = true, help="Parallel jobs count on each dimension")]
+    dim: Option<usize>,
 
     #[arg(short, long, next_line_help = true, help = "Scene description json input filename", value_name = "FILE.json")]
     scene: Option<std::path::PathBuf>,
@@ -163,47 +169,75 @@ fn main() {
     }
 
     // raytrace
-    let nw = (frame.res.0 as f32 * frame.ssaa) as u32;
-    let nh = (frame.res.1 as f32 * frame.ssaa) as u32;
+    let nw = (frame.res.0 as f32 * frame.ssaa) as usize;
+    let nh = (frame.res.1 as f32 * frame.ssaa) as usize;
 
-    let filename = cli.output.unwrap_or(std::path::PathBuf::from("out.png"));
-    let img: image::RgbImage = image::ImageBuffer::new(nw, nh);
+    let workers = cli.worker.unwrap_or(24);
+    let pool = threadpool::ThreadPool::new(workers);
 
-    let pool = threadpool::ThreadPool::new(cli.worker.unwrap_or(24));
+    let scene_sync = Arc::new(scene);
+    let frame_sync = Arc::new(frame);
+    let rt_sync = Arc::new(rt);
 
-    let img_mtx = std::sync::Arc::new(std::sync::Mutex::new(img));
-    let scene_sync = std::sync::Arc::new(scene);
-    let frame_sync = std::sync::Arc::new(frame);
-    let rt_sync = std::sync::Arc::new(rt);
+    let colors = Arc::new(Mutex::new(HashMap::new()));
 
-    for x in 0..nw {
-        for y in 0..nh {
-            let img_mtx_c = std::sync::Arc::clone(&img_mtx);
-            let rt_syc_c = std::sync::Arc::clone(&rt_sync);
-            let scene_syc_c = std::sync::Arc::clone(&scene_sync);
-            let frame_sync_c = std::sync::Arc::clone(&frame_sync);
+    let n_dim = cli.dim.unwrap_or(64);
+
+    let g_w = (nw as f32 / n_dim as f32).ceil() as usize;
+    let g_h = (nh as f32 / n_dim as f32).ceil() as usize;
+
+    for g_x in 0usize..n_dim {
+        for g_y in 0usize..n_dim {
+            let rt_syc_c = Arc::clone(&rt_sync);
+            let scene_syc_c = Arc::clone(&scene_sync);
+            let frame_sync_c = Arc::clone(&frame_sync);
+            let colors_c = Arc::clone(&colors);
 
             pool.execute(move || {
-                // raycast
-                let samples = (0..rt_syc_c.sample).map(|_| rt_syc_c.raytrace(Vec2f{x: x as f32, y: y as f32}, &scene_syc_c, &frame_sync_c));
-                let col = samples.fold(Vec3f::zero(), |acc, v| acc + v) / (rt_syc_c.sample as f32);
+                let mut l_colors = vec![];
 
-                // gamma correction
-                let mut final_col = <[f32; 3]>::from(col).map(|v| (v).powf(frame_sync_c.cam.gamma));
+                for l_x in 0..g_w {
+                    let x = g_w * g_x + l_x;
+                    if x >= nw {
+                        continue;
+                    }
 
-                // tone mapping (Reinhard's)
-                final_col = final_col.map(|v| v * (1.0 + v / ((1.0 - frame_sync_c.cam.exp) as f32).powi(2)) / (1.0 + v));
+                    for l_y in 0..g_h {
+                        let y = g_h * g_y + l_y;
+                        if y >= nh {
+                            continue;
+                        }
 
-                // set pixel
-                let mut guard = img_mtx_c.lock().unwrap();
-                let px = guard.get_pixel_mut(x.clone().into(), y.clone().into());
-                *px = image::Rgb(final_col.map(|v| (255.0 * v) as u8));
+                        let samples = (0..rt_syc_c.sample).map(|_| rt_syc_c.raytrace(Vec2f{x: x as f32, y: y as f32}, &scene_syc_c, &frame_sync_c));
+                        let col = samples.fold(Vec3f::zero(), |acc, v| acc + v) / (rt_syc_c.sample as f32);
+                        
+                        l_colors.push(((x, y), col));
+                    }
+                }
+
+                colors_c.lock().unwrap().extend(l_colors);
             });
         }
     }
     pool.join();
 
     // save output
-    let out_img = image::imageops::resize(&img_mtx.lock().unwrap().to_owned(), frame_sync.res.0 as u32, frame_sync.res.1 as u32, image::imageops::FilterType::Lanczos3);
+    let filename = cli.output.unwrap_or(std::path::PathBuf::from("out.png"));
+    let mut img: image::RgbImage = image::ImageBuffer::new(nw as u32, nh as u32);
+
+    for (x, y, px) in img.enumerate_pixels_mut() {
+        let col = colors.lock().unwrap().get(&(x as usize, y as usize)).unwrap_or(&Vec3f::zero()).clone();
+
+        // gamma correction
+        let mut final_col = <[f32; 3]>::from(col).map(|v| (v).powf(frame_sync.cam.gamma));
+    
+        // tone mapping (Reinhard's)
+        final_col = final_col.map(|v| v * (1.0 + v / ((1.0 - frame_sync.cam.exp) as f32).powi(2)) / (1.0 + v));
+    
+        // set pixel
+        *px = image::Rgb(final_col.map(|v| (255.0 * v) as u8));
+    }
+
+    let out_img = image::imageops::resize(&img, frame_sync.res.0 as u32, frame_sync.res.1 as u32, image::imageops::FilterType::Lanczos3);
     out_img.save(filename).unwrap();
 }
