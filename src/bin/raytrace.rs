@@ -140,6 +140,7 @@ fn main() {
         bounce: cli.bounce.unwrap_or(8),
         sample: cli.sample.unwrap_or(16),
         loss: cli.loss.unwrap_or(0.15),
+        ..RayTracer::default()
     };
 
     // verbose
@@ -225,9 +226,7 @@ fn main() {
                             continue;
                         }
 
-                        let samples = (0..rt_syc_c.sample).map(|_| rt_syc_c.raytrace(Vec2f{x: x as f32, y: y as f32}, &scene_syc_c, &frame_sync_c));
-                        let col = samples.fold(Vec3f::zero(), |acc, v| acc + v) / (rt_syc_c.sample as f32);
-                        
+                        let col = rt_syc_c.raytrace(Vec2f{x: x as f32, y: y as f32}, &scene_syc_c, &frame_sync_c);
                         l_colors.push(((x, y), col));
                     }
                 }

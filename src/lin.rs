@@ -128,6 +128,15 @@ impl Vec3f {
             z: 0.0
         }
     }
+
+    pub fn from_proj(self) -> Vec4f {
+        Vec4f {
+            w: 0.0,
+            x: self.x,
+            y: self.y,
+            z: self.z
+        }
+    }
 }
 
 impl Vec4f {

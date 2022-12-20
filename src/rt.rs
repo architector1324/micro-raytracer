@@ -1,7 +1,10 @@
 use rand::Rng;
+use rand::distributions::Uniform;
+use std::f32::consts::PI;
 use image::EncodableLayout;
 use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;
+use core::panic;
 use std::io::prelude::{Read, Write};
 use serde::{Serialize, Deserialize};
 
@@ -14,6 +17,9 @@ pub struct RayTracer {
     pub bounce: usize,
     pub sample: usize,
     pub loss: f32,
+
+    #[serde(skip_serializing, skip_deserializing, default = "RayTracer::default_sampler")]
+    pub sampler: Uniform<f32>,
 }
 
 #[derive(Debug, Clone)]
@@ -148,6 +154,17 @@ pub struct Scene {
 impl <'a> From<&'a Ray> for Vec3f {
     fn from(ray: &'a Ray) -> Self {
         ray.orig + ray.dir * ray.t
+    }
+}
+
+impl Default for RayTracer {
+    fn default() -> Self {
+        RayTracer {
+            bounce: 8,
+            sample: 16,
+            loss: 0.15,
+            sampler: RayTracer::default_sampler()
+        }
     }
 }
 
@@ -451,8 +468,8 @@ impl Ray {
     }
 
     pub fn reflect(&self, rt: &RayTracer, hit: &RayHit) -> Ray {
-        let mut rough = hit.obj.get_rough((&hit.ray.0).into());
-        let opacity = hit.obj.get_opacity((&hit.ray.0).into());
+        let mut rough = hit.get_rough();
+        let opacity = hit.get_opacity();
 
         // 75% chance to diffuse for dielectric
         if hit.obj.mat.metal == 0.0 && opacity != 0.0 && rand::thread_rng().gen_bool((1.0 - rough).min(0.75).into()) {
@@ -466,8 +483,8 @@ impl Ray {
     }
 
     pub fn refract(&self, rt:&RayTracer, hit: &RayHit) -> Option<Ray> {
-        let mut rough = hit.obj.get_rough((&hit.ray.0).into());
-        let opacity = hit.obj.get_opacity((&hit.ray.0).into());
+        let mut rough = hit.get_rough();
+        let opacity = hit.get_opacity();
 
         // 75% chance to diffuse for dielectric
         if hit.obj.mat.metal == 0.0 && opacity != 0.0 && rand::thread_rng().gen_bool((1.0 - rough).min(0.75).into()) {
@@ -476,10 +493,36 @@ impl Ray {
 
         let norm = (hit.norm.1 + Vec3f::rand(rough)).norm();
 
-        let eta = 1.0 + hit.obj.get_glass((&hit.ray.0).into()) / 2.0;
+        let eta = 1.0 + 0.5 * hit.get_glass();
         let dir = self.dir.refract(eta, norm)?.norm();
 
         Some(Ray::cast(self.into(), dir, self.pwr * (1.0 - rt.loss.min(1.0)), self.bounce + 1))
+    }
+}
+
+impl <'a> RayHit<'a> {
+    pub fn get_color(&self) -> Vec3f {
+        self.obj.get_color(Some((&self.ray.0).into()))
+    }
+
+    pub fn get_rough(&self) -> f32 {
+        self.obj.get_rough(Some((&self.ray.0).into()))
+    }
+
+    pub fn get_metal(&self) -> f32 {
+        self.obj.get_metal(Some((&self.ray.0).into()))
+    }
+
+    pub fn get_glass(&self) -> f32 {
+        self.obj.get_glass(Some((&self.ray.0).into()))
+    }
+
+    pub fn get_opacity(&self) -> f32 {
+        self.obj.get_opacity(Some((&self.ray.0).into()))
+    }
+
+    pub fn get_emit(&self) -> f32 {
+        self.obj.get_emit(Some((&self.ray.0).into()))
     }
 }
 
@@ -671,7 +714,7 @@ impl Renderer {
 
                 let v = (n_hit - self.pos).norm();
                 Vec2f {
-                    x: 0.5 + 0.5 * v.x.atan2(-v.y) / std::f32::consts::PI,
+                    x: 0.5 + 0.5 * v.x.atan2(-v.y) / PI,
                     y: 0.5 - 0.5 * v.z
                 }
             },
@@ -739,51 +782,63 @@ impl Renderer {
         }
     }
 
-    pub fn get_color(&self, v: Vec3f) -> Vec3f {
+    pub fn get_color(&self, v: Option<Vec3f>) -> Vec3f {
         if let Some(tex) = &self.mat.tex {
-            return self.mat.albedo.hadam(tex.get_color(self.to_uv(v)));
+            if let Some(v) = v {
+                return self.mat.albedo.hadam(tex.get_color(self.to_uv(v)));
+            }
         }
         self.mat.albedo
     }
 
-    pub fn get_rough(&self, v: Vec3f) -> f32 {
+    pub fn get_rough(&self, v: Option<Vec3f>) -> f32 {
         if let Some(tex) = &self.mat.rmap {
-            return tex.get_color(self.to_uv(v)).x
+            if let Some(v) = v {
+                return tex.get_color(self.to_uv(v)).x
+            }
         }
         self.mat.rough
     }
 
-    pub fn get_metal(&self, v: Vec3f) -> f32 {
+    pub fn get_metal(&self, v: Option<Vec3f>) -> f32 {
         if let Some(tex) = &self.mat.mmap {
-            return tex.get_color(self.to_uv(v)).x;
+            if let Some(v) = v {
+                return tex.get_color(self.to_uv(v)).x;
+            }
         }
         self.mat.metal
     }
 
-    pub fn get_glass(&self, v: Vec3f) -> f32 {
+    pub fn get_glass(&self, v: Option<Vec3f>) -> f32 {
         if let Some(tex) = &self.mat.gmap {
-            return tex.get_color(self.to_uv(v)).x;
+            if let Some(v) = v {
+                return tex.get_color(self.to_uv(v)).x;
+            }
         }
         self.mat.glass
     }
 
-    pub fn get_opacity(&self, v: Vec3f) -> f32 {
+    pub fn get_opacity(&self, v: Option<Vec3f>) -> f32 {
         if let Some(tex) = &self.mat.omap {
-            return tex.get_color(self.to_uv(v)).x;
+            if let Some(v) = v {
+                return tex.get_color(self.to_uv(v)).x;
+            }
         }
         self.mat.opacity
     }
 
-    pub fn get_emit(&self, v: Vec3f) -> f32 {
+    pub fn get_emit(&self, v: Option<Vec3f>) -> f32 {
         if let Some(tex) = &self.mat.emap {
-            return tex.get_color(self.to_uv(v)).x;
+            if let Some(v) = v {
+                return tex.get_color(self.to_uv(v)).x;
+            }
         }
         self.mat.emit
     }
 }
 
 impl RayTracer {
-    pub fn closest_hit<'a>(scene: &'a Scene, ray: &'a Ray) -> Option<RayHit<'a>> {
+    fn closest_hit<'a>(scene: &'a Scene, ray: &'a Ray) -> Option<RayHit<'a>> {
         let hits = scene.renderer.as_deref()?.iter().map(|obj| (obj, obj.intersect(&ray))).filter(|p| p.1.is_some()).map(|p| (p.0, p.1.unwrap().0, p.1.unwrap().1));
 
         hits.min_by(|max, p| max.1.total_cmp(&p.1)).and_then(|v| {
@@ -800,7 +855,11 @@ impl RayTracer {
         })
     }
 
-    pub fn cast(uv: Vec2f, frame: &Frame) -> Ray {
+    pub fn default_sampler() -> Uniform<f32> {
+        Uniform::new(0.0, 1.0)
+    }
+
+    fn cast(uv: Vec2f, frame: &Frame) -> Ray {
         // get direction
         let tan_fov = (frame.cam.fov / 2.0).to_radians().tan();
 
@@ -818,7 +877,7 @@ impl RayTracer {
         Ray::cast_default(frame.cam.pos, rot_y * (look * dir))
     }
 
-    pub fn pathtrace_direct_light(scene: &Scene, hit: &RayHit) -> Option<Vec3f> {
+    fn direct_light(scene: &Scene, hit: &RayHit) -> Option<Vec3f> {
         let mut col = Vec3f::zero();
 
         let lights = scene.light.as_ref()?;
@@ -836,20 +895,19 @@ impl RayTracer {
             }
 
             let diff = (l.norm() * hit.norm.0).max(0.0);
-            let spec = (hit.ray.0.dir * l.norm().reflect(hit.norm.0)).max(0.0).powi(32) * (1.0 - hit.obj.get_rough((&hit.ray.0).into()));
+            let spec = (hit.ray.0.dir * l.norm().reflect(hit.norm.0)).max(0.0).powi(32) * (1.0 - hit.get_rough());
 
-            let o_col = hit.obj.get_color((&hit.ray.0).into()) * (1.0 - hit.obj.get_metal((&hit.ray.0).into()));
+            let o_col = hit.get_color() * (1.0 - hit.get_metal());
 
-            // col += ((o_col * diff).hadam(light.color) + spec) * light.pwr / (l.mag().powi(2));
             col += ((o_col * diff).hadam(light.color) + spec) * light.pwr;
         }
 
         Some(col * hit.ray.0.pwr)
     }
 
-    pub fn pathtrace_indirect_light(&self, scene: &Scene, hit: &RayHit) -> Vec3f {
+    pub fn indirect_light(&self, scene: &Scene, hit: &RayHit) -> Vec3f {
         let mut next_ray = hit.ray.0.reflect(self, hit);
-        let opacity = hit.obj.get_opacity((&hit.ray.0).into());
+        let opacity = hit.get_opacity();
 
         // 15% chance to reflect for transparent material
         if rand::thread_rng().gen_bool((1.0 - opacity).min(0.85).into()) {
@@ -859,7 +917,7 @@ impl RayTracer {
         }
 
         let next_col = self.pathtrace(scene, &mut next_ray);
-        let curr_col = hit.obj.get_color((&hit.ray.0).into());
+        let curr_col = hit.get_color();
 
         let col = 0.5 * next_col + curr_col.hadam(next_col);
 
@@ -875,19 +933,19 @@ impl RayTracer {
         // intersect
         if let Some(hit) = RayTracer::closest_hit(scene, ray) {
             // emit
-            let emit = hit.obj.get_emit((&hit.ray.0).into());
+            let emit = hit.get_emit();
 
             if rand::thread_rng().gen_bool(emit.into()) {
-                return hit.obj.get_color((&hit.ray.0).into());
+                return hit.get_color();
             }
 
             // total light
-            let l_col = RayTracer::pathtrace_direct_light(scene, &hit);
-            let d_col = self.pathtrace_indirect_light(scene, &hit);
+            let l_col = RayTracer::direct_light(scene, &hit);
+            let d_col = self.indirect_light(scene, &hit);
 
-            return d_col + l_col.unwrap_or(Vec3f::default());
+            return d_col + l_col.unwrap_or(Vec3f::zero());
         }
-        
+
         // sky
         if ray.bounce == 0 {
             return scene.sky.color
@@ -906,7 +964,8 @@ impl RayTracer {
             y: (coord.y - h / 2.0) / h
         };
 
-        let mut ray = RayTracer::cast(uv, frame);
-        self.pathtrace(scene, &mut ray)
+        let ray = RayTracer::cast(uv, frame);
+
+        (0..self.sample).map(|_| self.pathtrace(scene, &ray)).fold(Vec3f::zero(), |acc, v| acc + v) / (self.sample as f32)
     }
 }
