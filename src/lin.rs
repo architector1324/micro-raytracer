@@ -113,14 +113,6 @@ impl Vec3f {
         }
     }
 
-    pub fn rand(max_v: f32) -> Self {
-        Vec3f {
-            x: rand::thread_rng().gen_range(-0.5..0.5) * max_v,
-            y: rand::thread_rng().gen_range(-0.5..0.5) * max_v, 
-            z: rand::thread_rng().gen_range(-0.5..0.5) * max_v
-        }
-    }
-
     pub fn zero() -> Self {
         Vec3f {
             x: 0.0,

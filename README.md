@@ -11,16 +11,16 @@ It's something like [Zenity](https://github.com/GNOME/zenity), that provides you
 ```bash
 raytrace --obj sph r: 0.2 rough: 1 \
          --obj sph r: 0.1 pos: -0.4 0 -0.1 glass: 0.1 opacity: 0 \
-         --obj sph r: 0.4 pos: 0.5 0.5 0.2 albedo: 0 0 1 rough: 0.1 \
+         --obj sph r: 0.4 pos: 0.5 0.5 0.2 albedo: 0 0 1 rough: 0.01 \
          --obj sph r: 0.3 pos: -0.5 0.5 0.1 metal: 1 \
          --obj sph r: 0.08 pos: 0.3 0.18 -0.12 emit: 1.0 \
-         --obj pln pos: 0 0 -0.2 rough: 1 \
+         --obj pln pos: 0 0 -0.2 rough: 0.5 metal: 1 \
          --obj pln n: 0 0 -1 pos: 0 0 1 emit: 1.0 \
          --obj pln n: -1 0 0 pos: 1 0 0 albedo: 0 1 0 rough: 1 \
          --obj pln n: 1 0 0 pos: -1 0 0 albedo: 1 0 0 rough: 1 \
          --obj pln n: 0 -1 0 pos: 0 1 0 rough: 1 \
          --cam fov: 60 gamma: 0.8 exp: 0 \
-         --bounce 16 --sample 1024 \
+         --bounce 16 --sample 512 \
          --res 1920 1080 --ssaa 2
 ```
 
@@ -133,8 +133,8 @@ raytrace --obj sph r: 0.2 pos: 0.5 0.5 0 albedo: 1 0.76 0.47 emit: 1.0 \
          --obj pln n: -1 0 0 pos: 1 0 0 albedo: 0 1 0 rough: 1 \
          --obj pln n: 1 0 0 pos: -1 0 0 albedo: 1 0 0 rough: 1 \
          --obj pln n: 0 -1 0 pos: 0 1 0 rough: 1 \
-         --cam pos: 0 -1.2 0.1 fov: 60 gamma: 0.42 exp: 0.54 \
-         --bounce 256 --sample 1024
+         --cam pos: 0 -1.2 0.1 fov: 60 gamma: 0.5 exp: 0.75 \
+         --bounce 16 --sample 1024
 ```
 
 ![image](doc/out2.png)
@@ -239,9 +239,9 @@ raytrace --obj sph r: 0.2 pos: 0.5 0.5 0 albedo: 1 0.76 0.47 emit: 1.0 \
     "ssaa": 1,
     "cam": {
         "dir": [0, 0, 1, 0],
-        "exp": 0.54,
+        "exp": 0.75,
         "fov": 70,
-        "gamma": 0.42,
+        "gamma": 0.5,
         "pos": [0, -1.2, 0.1]
     }
 }

@@ -471,12 +471,12 @@ impl Ray {
         let mut rough = hit.get_rough();
         let opacity = hit.get_opacity();
 
-        // 75% chance to diffuse for dielectric
-        if hit.obj.mat.metal == 0.0 && opacity != 0.0 && rand::thread_rng().gen_bool((1.0 - rough).min(0.75).into()) {
+        // 70% chance to diffuse for dielectric
+        if hit.obj.mat.metal == 0.0 && opacity != 0.0 && rand::thread_rng().gen_bool(0.70) {
             rough = 1.0;
         }
 
-        let norm = (hit.norm.0 + Vec3f::rand(rough)).norm();
+        let norm = (hit.norm.0 + rough * rt.rand()).norm();
         let dir = self.dir.reflect(norm).norm();
 
         Ray::cast(self.into(), dir, self.pwr * (1.0 - rt.loss.min(1.0)), self.bounce + 1)
@@ -491,7 +491,7 @@ impl Ray {
             rough = 1.0;
         }
 
-        let norm = (hit.norm.1 + Vec3f::rand(rough)).norm();
+        let norm = (hit.norm.1 + rough * rt.rand()).norm();
 
         let eta = 1.0 + 0.5 * hit.get_glass();
         let dir = self.dir.refract(eta, norm)?.norm();
@@ -853,6 +853,14 @@ impl RayTracer {
                 }
             )
         })
+    }
+
+    fn rand(&self) -> Vec3f {
+        Vec3f {
+            x: rand::thread_rng().sample(self.sampler) * 2.0 - 1.0,
+            y: rand::thread_rng().sample(self.sampler) * 2.0 - 1.0, 
+            z: rand::thread_rng().sample(self.sampler) * 2.0 - 1.0
+        }
     }
 
     pub fn default_sampler() -> Uniform<f32> {
