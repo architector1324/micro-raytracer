@@ -228,7 +228,7 @@ fn main() {
                         .map(|(x, y)| (x + g_w * g_x, y + g_h * g_y))
                         .map(|(x, y)| (
                             (x, y),
-                            rt_syc_c.raytrace(Vec2f{x: x as f32, y: y as f32}, &scene_syc_c, &frame_sync_c)
+                            rt_syc_c.raytrace(rt_syc_c.iter(Vec2f{x: x as f32, y: y as f32}, &scene_syc_c, &frame_sync_c))
                         ))
                 ).collect::<Vec<_>>();
 
