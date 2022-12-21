@@ -898,8 +898,8 @@ impl RayTracer {
         Ray::cast_default(frame.cam.pos, rot_y * (look * dir))
     }
 
-    pub fn raytrace<'a, I>(&self, it: I) -> Vec3f where I: Iterator<Item = (RayHit<'a>, Option<Vec<&'a Light>>)> + Clone {
-        (0..self.sample).map(|_| self.reduce_light(it.clone())).sum::<Vec3f>() / (self.sample as f32)
+    pub fn raytrace<'a, I>(&self, scene: &'a Scene, it: I) -> Vec3f where I: Iterator<Item = (RayHit<'a>, Option<Vec<&'a Light>>)> + Clone {
+        (0..self.sample).map(|_| self.reduce_light(scene, it.clone())).sum::<Vec3f>() / (self.sample as f32)
     }
 
     pub fn iter<'a>(&'a self, coord: Vec2f, scene: &'a Scene, frame: &Frame) -> RaytraceIterator {
@@ -921,11 +921,15 @@ impl RayTracer {
         }
     }
 
-    pub fn reduce_light<'a, I>(&self, it: I) -> Vec3f where I: Iterator<Item = (RayHit<'a>, Option<Vec<&'a Light>>)> + Clone {
+    pub fn reduce_light<'a, I>(&self, scene: &'a Scene, it: I) -> Vec3f where I: Iterator<Item = (RayHit<'a>, Option<Vec<&'a Light>>)> + Clone {
+        if it.clone().count() == 0 {
+            return scene.sky.color;
+        }
+
         let tmp = it.collect::<Vec<_>>();
         let path = tmp.iter().rev();
 
-        path.fold(Vec3f::zero(), |col, (hit, lights)| {
+        path.fold(scene.sky.color * scene.sky.pwr, |col, (hit, lights)| {
             // emit
             let emit = hit.get_emit();
 
@@ -967,9 +971,9 @@ impl<'a> Iterator for RaytraceIterator<'a> {
         }
 
         // intersect
-        let mut out_light: Option<Vec<&Light>> = None;
-
         if let Some(hit) = RayTracer::closest_hit(self.scene, &self.next_ray) {
+            let mut out_light: Option<Vec<&Light>> = None;
+
             // get light
             if let Some(lights) = self.scene.light.as_ref() {
                 for light in lights {
