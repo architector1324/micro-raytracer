@@ -24,6 +24,21 @@ raytrace --obj sph r: 0.2 rough: 1 \
          --res 1920 1080 --ssaa 2
 ```
 
+![image](doc/out3.png)
+
+```bash
+raytrace --obj sph r: 0.15 pos: 0 0 -0.1 \
+         --obj box size: 0.25 0.25 0.25 pos: 0 0 -0.375 dir: 0 0.5 0.5 0 \
+         --obj box size: 0.3 0.3 0.01 pos: 0 0 0.499 emit: 1 \
+         --obj box size: 1 0.01 1 pos: 0 0.5 0 \
+         --obj box size: 1 1 0.01 pos: 0 0 0.5 \
+         --obj box size: 1 1 0.01 pos: 0 0 -0.5 \
+         --obj box size: 0.01 1 1 pos: -0.5 0 0 albedo: 1 0 0 \
+         --obj box size: 0.01 1 1 pos: 0.5 0 0 albedo: 0 1 0 \
+         --cam pos: 0 -1.25 0 fov: 60 gamma: 0.6 exp: 0.8 \
+         --sample 1024 --ssaa 2 --res 1080 1080
+```
+
 ## Build
 Build statically for [linux](https://en.wikipedia.org/wiki/Linux) using [musl](https://musl.libc.org/). This executable may run on any linux system without any additional libs.
 
@@ -275,25 +290,13 @@ raytrace -v -d --pretty --obj sphere --light point: -0.5 -1 0.5
 {
     "frame": {
         "cam": {
-            "dir": [
-                0,
-                0,
-                1,
-                0
-            ],
+            "dir": [0, 0, 1, 0],
             "exp": 0.20000000298023224,
             "fov": 70,
             "gamma": 0.800000011920929,
-            "pos": [
-                0,
-                -1,
-                0
-            ]
+            "pos": [0, -1, 0]
         },
-        "res": [
-            1280,
-            720
-        ],
+        "res": [1280, 720],
         "ssaa": 1
     },
     "rt": {
@@ -302,63 +305,38 @@ raytrace -v -d --pretty --obj sphere --light point: -0.5 -1 0.5
         "sample": 16
     },
     "scene": {
-        "light": [
-            {
-                "color": [
-                    1,
-                    1,
-                    1
-                ],
-                "pos": [
-                    -0.5,
-                    -1,
-                    0.5
-                ],
-                "pwr": 0.5,
-                "type": "point"
-            }
-        ],
         "renderer": [
             {
-                "dir": [
-                    0,
-                    0,
-                    1,
-                    0
-                ],
-                "mat": {
-                    "albedo": [
-                        1,
-                        1,
-                        1
-                    ],
-                    "emap": null,
-                    "emit": 0,
-                    "glass": 0,
-                    "gmap": null,
-                    "metal": 0,
-                    "mmap": null,
-                    "omap": null,
-                    "opacity": 1,
-                    "rmap": null,
-                    "rough": 0,
-                    "tex": null
-                },
-                "pos": [
-                    0,
-                    0,
-                    0
-                ],
+                "type": "sphere",
                 "r": 0.5,
-                "type": "sphere"
+                "dir": [0, 0, 1, 0],
+                "mat": {
+                    "albedo": [1, 1, 1],
+                    "rough": 0,
+                    "metal": 0,
+                    "glass": 0,
+                    "opacity": 1,
+                    "emit": 0,
+                    "tex": null,
+                    "rmap": null,
+                    "mmap": null,
+                    "gmap": null,
+                    "omap": null,
+                    "emap": null
+                },
+                "pos": [0, 0, 0]
+            }
+        ],
+        "light": [
+            {
+                "type": "point",
+                "pwr": 0.5,
+                "color": [1, 1, 1],
+                "pos": [-0.5, -1, 0.5]
             }
         ],
         "sky": {
-            "color": [
-                0,
-                0,
-                0
-            ],
+            "color": [0, 0, 0],
             "pwr": 0.5
         }
     }

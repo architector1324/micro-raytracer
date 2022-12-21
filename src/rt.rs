@@ -868,18 +868,6 @@ impl RayTracer {
         })
     }
 
-    fn rand(&self) -> Vec3f {
-        Vec3f {
-            x: rand::thread_rng().sample(self.sampler) * 2.0 - 1.0,
-            y: rand::thread_rng().sample(self.sampler) * 2.0 - 1.0, 
-            z: rand::thread_rng().sample(self.sampler) * 2.0 - 1.0
-        }
-    }
-
-    pub fn default_sampler() -> Uniform<f32> {
-        Uniform::new(0.0, 1.0)
-    }
-
     fn cast(uv: Vec2f, frame: &Frame) -> Ray {
         // get direction
         let tan_fov = (frame.cam.fov / 2.0).to_radians().tan();
@@ -959,6 +947,18 @@ impl RayTracer {
 
             (d_col + l_col) * hit.ray.0.pwr
         })
+    }
+
+    fn rand(&self) -> Vec3f {
+        Vec3f {
+            x: rand::thread_rng().sample(self.sampler) * 2.0 - 1.0,
+            y: rand::thread_rng().sample(self.sampler) * 2.0 - 1.0, 
+            z: rand::thread_rng().sample(self.sampler) * 2.0 - 1.0
+        }
+    }
+
+    pub fn default_sampler() -> Uniform<f32> {
+        Uniform::new(0.0, 1.0)
     }
 }
 
