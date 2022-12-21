@@ -532,16 +532,7 @@ impl Texture {
         let img = tmp.as_mut_rgb8().unwrap();
         let size = img.dimensions();
 
-        let mut out = vec![];
-
-        for px in img.pixels() {
-            let col = Vec3f {
-                x: px[0] as f32 / 255.0,
-                y: px[1] as f32 / 255.0,
-                z: px[2] as f32 / 255.0
-            };
-            out.push(col);
-        }
+        let out = img.pixels().map(|px| Vec3f::from(px.0.map(|v| v as f32 / 255.0))).collect();
 
         Texture::Buffer(BufferF32 {
             w: size.0 as usize,
@@ -853,9 +844,11 @@ impl Renderer {
 
 impl RayTracer {
     fn closest_hit<'a>(scene: &'a Scene, ray: &'a Ray) -> Option<RayHit<'a>> {
-        let hits = scene.renderer.as_deref()?.iter().map(|obj| (obj, obj.intersect(&ray))).filter(|p| p.1.is_some()).map(|p| (p.0, p.1.unwrap().0, p.1.unwrap().1));
+        let hits = scene.renderer.as_deref()?.iter()
+            .map(|obj| (obj, obj.intersect(&ray)))
+            .filter_map(|(obj, p)| Some((obj, p?.0, p?.1)));
 
-        hits.min_by(|max, p| max.1.total_cmp(&p.1)).and_then(|v| {
+        hits.min_by(|(_, max, _), (_, p, _)| max.total_cmp(&p)).and_then(|v| {
             let r0 = Ray {t: v.1, ..ray.clone()};
             let r1 = Ray {t: v.2, ..ray.clone()};
 
@@ -946,7 +939,7 @@ impl RayTracer {
         col * next_ray.pwr
     }
 
-    pub fn pathtrace<'a>(&self, scene: &'a Scene, ray: &Ray) -> Vec3f {
+    pub fn pathtrace(&self, scene: &Scene, ray: &Ray) -> Vec3f {
         // check bounce
         if ray.bounce > self.bounce {
             return scene.sky.color * scene.sky.pwr
@@ -988,6 +981,6 @@ impl RayTracer {
 
         let ray = RayTracer::cast(uv, frame);
 
-        (0..self.sample).map(|_| self.pathtrace(scene, &ray)).fold(Vec3f::zero(), |acc, v| acc + v) / (self.sample as f32)
+        (0..self.sample).map(|_| self.pathtrace(scene, &ray)).sum::<Vec3f>() / (self.sample as f32)
     }
 }

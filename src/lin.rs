@@ -1,5 +1,5 @@
 use serde::{Serialize, Deserialize};
-use rand::Rng;
+use serde_json::map::Iter;
 
 
 #[derive(Debug, Clone)]
@@ -401,6 +401,16 @@ impl From<[f32; 3]> for Vec3f {
     }
 }
 
+impl From<&[f32]> for Vec3f {
+    fn from(v: &[f32]) -> Self {
+        Vec3f {
+            x: v[0],
+            y: v[1],
+            z: v[2]
+        }
+    }
+}
+
 impl From<Vec4f> for [f32; 4] {
     fn from(v: Vec4f) -> Self {
         [v.w, v.x, v.y, v.z]
@@ -455,5 +465,11 @@ impl IntoIterator for Vec3f {
 
     fn into_iter(self) -> Self::IntoIter {
         <[f32; 3]>::from(self).into_iter()
+    }
+}
+
+impl std::iter::Sum<Vec3f> for Vec3f {
+    fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
+        iter.fold(Vec3f::zero(), |acc, v| acc + v)
     }
 }

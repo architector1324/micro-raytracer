@@ -68,17 +68,15 @@ struct CLI {
 }
 
 trait ParseFromArgs<T: From<Vec<String>>> {
-    fn parse_args(args: &Vec<String>, pat: &[&str], out: &mut Option<Vec<T>>) {
-        let args_rev: Vec<_> = args.iter().rev().map(|v| String::from(v)).collect();
-        let objs = args_rev.split_inclusive(|t| pat.contains(&t.as_str())).map(|v| v.iter().rev());
+    fn parse_args(args: &Vec<String>, pat: &[&str]) -> Vec<T>{
+        let args_rev: Vec<_> = args.iter()
+            .rev()
+            .map(|v| String::from(v)).collect();
 
-        if out.is_none() {
-            *out = Some(vec![]);
-        }
-
-        for obj in objs {
-            out.as_mut().unwrap().push(T::from(obj.map(|v| String::from(v)).collect::<Vec<_>>()));
-        }
+        args_rev.split_inclusive(|t| pat.contains(&t.as_str()))
+            .map(|v| v.iter().rev())
+            .map(|obj| T::from(obj.map(|v| String::from(v)).collect::<Vec<_>>()))
+            .collect()
     }
 }
 
@@ -122,11 +120,23 @@ fn main() {
     }
 
     if let Some(objs_args) = cli.obj {
-        Scene::parse_args(&objs_args, &["sphere", "sph", "plane", "pln", "box"], &mut scene.renderer);
+        let new_objs = Scene::parse_args(&objs_args, &["sphere", "sph", "plane", "pln", "box"]);
+
+        if let Some(ref mut objs) = scene.renderer {
+            objs.extend(new_objs);
+        } else {
+            scene.renderer = Some(new_objs);
+        }
     }
 
     if let Some(lights_args) = cli.light {
-        Scene::parse_args(&lights_args, &["pt:", "point:", "dir:"], &mut scene.light);
+        let new_lights = Scene::parse_args(&lights_args, &["pt:", "point:", "dir:"]);
+
+        if let Some(ref mut lights) = scene.light {
+            lights.extend(new_lights);
+        } else {
+            scene.light = Some(new_lights);
+        }
     }
 
     if let Some(sky) = cli.sky {
@@ -212,24 +222,15 @@ fn main() {
             let colors_c = Arc::clone(&colors);
 
             pool.execute(move || {
-                let mut l_colors = vec![];
-
-                for l_x in 0..g_w {
-                    let x = g_w * g_x + l_x;
-                    if x >= nw {
-                        continue;
-                    }
-
-                    for l_y in 0..g_h {
-                        let y = g_h * g_y + l_y;
-                        if y >= nh {
-                            continue;
-                        }
-
-                        let col = rt_syc_c.raytrace(Vec2f{x: x as f32, y: y as f32}, &scene_syc_c, &frame_sync_c);
-                        l_colors.push(((x, y), col));
-                    }
-                }
+                let l_colors = (0..g_w).flat_map(
+                    |x| std::iter::repeat(x)
+                        .zip(0..g_h)
+                        .map(|(x, y)| (x + g_w * g_x, y + g_h * g_y))
+                        .map(|(x, y)| (
+                            (x, y),
+                            rt_syc_c.raytrace(Vec2f{x: x as f32, y: y as f32}, &scene_syc_c, &frame_sync_c)
+                        ))
+                ).collect::<Vec<_>>();
 
                 colors_c.lock().unwrap().extend(l_colors);
             });
@@ -239,20 +240,20 @@ fn main() {
 
     // save output
     let filename = cli.output.unwrap_or(std::path::PathBuf::from("out.png"));
-    let mut img: image::RgbImage = image::ImageBuffer::new(nw as u32, nh as u32);
 
-    for (x, y, px) in img.enumerate_pixels_mut() {
+    let img: image::RgbImage = image::ImageBuffer::from_fn(nw as u32, nh as u32, |x, y| {
         let col = colors.lock().unwrap().get(&(x as usize, y as usize)).unwrap_or(&Vec3f::zero()).clone();
-
+    
         // gamma correction
         let gamma_col = col.into_iter().map(|v| (v).powf(frame_sync.cam.gamma));
-
+    
         // tone mapping (Reinhard's)
         let final_col = gamma_col.map(|v| v * (1.0 + v / ((1.0 - frame_sync.cam.exp) as f32).powi(2)) / (1.0 + v));
-
+    
         // set pixel
-        *px = image::Rgb(final_col.map(|v| (255.0 * v) as u8).collect::<Vec<_>>().as_slice().try_into().unwrap());
-    }
+        image::Rgb(final_col.map(|v| (255.0 * v) as u8)
+            .collect::<Vec<_>>().as_slice().try_into().unwrap())
+    });
 
     let out_img = image::imageops::resize(&img, frame_sync.res.0 as u32, frame_sync.res.1 as u32, image::imageops::FilterType::Lanczos3);
     out_img.save(filename).unwrap();
