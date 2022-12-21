@@ -448,3 +448,12 @@ impl <'a> ParseFromStrIter<'a> for Vec4f {
         }
     }
 }
+
+impl IntoIterator for Vec3f {
+    type Item = f32;
+    type IntoIter = std::array::IntoIter<f32, 3>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        <[f32; 3]>::from(self).into_iter()
+    }
+}

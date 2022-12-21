@@ -645,7 +645,21 @@ impl Renderer {
                 let n_orig = self.pos + rot_y * (look * (ray.orig - self.pos));
                 let n_dir = rot_y * (look * ray.dir);
 
-                let m = n_dir.recip();
+                let mut m = n_dir.recip();
+
+                // workaround for zero division
+                if m.x.is_infinite() {
+                    m.x = E.recip();
+                }
+
+                if m.y.is_infinite() {
+                    m.y = E.recip();
+                }
+
+                if m.z.is_infinite() {
+                    m.z = E.recip();
+                }
+
                 let n = (n_orig - self.pos).hadam(m);
                 let k = (sizes / 2.0).hadam(m.abs());
 

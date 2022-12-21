@@ -245,13 +245,13 @@ fn main() {
         let col = colors.lock().unwrap().get(&(x as usize, y as usize)).unwrap_or(&Vec3f::zero()).clone();
 
         // gamma correction
-        let mut final_col = <[f32; 3]>::from(col).map(|v| (v).powf(frame_sync.cam.gamma));
-    
+        let gamma_col = col.into_iter().map(|v| (v).powf(frame_sync.cam.gamma));
+
         // tone mapping (Reinhard's)
-        final_col = final_col.map(|v| v * (1.0 + v / ((1.0 - frame_sync.cam.exp) as f32).powi(2)) / (1.0 + v));
-    
+        let final_col = gamma_col.map(|v| v * (1.0 + v / ((1.0 - frame_sync.cam.exp) as f32).powi(2)) / (1.0 + v));
+
         // set pixel
-        *px = image::Rgb(final_col.map(|v| (255.0 * v) as u8));
+        *px = image::Rgb(final_col.map(|v| (255.0 * v) as u8).collect::<Vec<_>>().as_slice().try_into().unwrap());
     }
 
     let out_img = image::imageops::resize(&img, frame_sync.res.0 as u32, frame_sync.res.1 as u32, image::imageops::FilterType::Lanczos3);
