@@ -492,12 +492,12 @@ impl Ray {
         let mut rough = hit.get_rough();
         let opacity = hit.get_opacity();
 
-        // 70% chance to diffuse for dielectric
-        if hit.obj.mat.metal == 0.0 && opacity != 0.0 && rand::thread_rng().gen_bool(0.70) {
+        // 80% chance to diffuse for dielectric
+        if hit.obj.mat.metal == 0.0 && opacity != 0.0 && rand::thread_rng().gen_bool(0.80) {
             rough = 1.0;
         }
 
-        let norm = (hit.norm.0 + rough * rt.rand()).norm();
+        let norm = rt.rand(hit.norm.0, rough);
         let dir = self.dir.reflect(norm).norm();
 
         Ray::cast(self.into(), dir, self.pwr * (1.0 - rt.loss.min(1.0)), self.bounce + 1)
@@ -507,12 +507,12 @@ impl Ray {
         let mut rough = hit.get_rough();
         let opacity = hit.get_opacity();
 
-        // 75% chance to diffuse for dielectric
-        if hit.obj.mat.metal == 0.0 && opacity != 0.0 && rand::thread_rng().gen_bool((1.0 - rough).min(0.75).into()) {
+        // 80% chance to diffuse for dielectric
+        if hit.obj.mat.metal == 0.0 && opacity != 0.0 && rand::thread_rng().gen_bool(0.80) {
             rough = 1.0;
         }
 
-        let norm = (hit.norm.1 + rough * rt.rand()).norm();
+        let norm = rt.rand(hit.norm.1, rough);
 
         let eta = 1.0 + 0.5 * hit.get_glass();
         let dir = self.dir.refract(eta, norm)?.norm();
@@ -997,15 +997,17 @@ impl RayTracer {
         })
     }
 
-    pub fn rand(&self) -> Vec3f {
-        let th = rand::thread_rng().sample(self.sampler) * PI;
-        let phi = (rand::thread_rng().sample(self.sampler) * 2.0 - 1.0) * PI;
+    pub fn rand(&self, n: Vec3f, r: f32) -> Vec3f {
+        let th = (1.0 - 2.0 * rand::thread_rng().sample(self.sampler)).acos();
+        let phi = rand::thread_rng().sample(self.sampler) * 2.0 * PI;
 
-        Vec3f {
+        let v = Vec3f {
             x: th.sin() * phi.cos(),
             y: th.sin() * phi.sin(),
             z: th.cos()
-        }
+        };
+
+        (n + r * v).norm()
     }
 
     pub fn default_sampler() -> Uniform<f32> {

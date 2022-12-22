@@ -268,15 +268,17 @@ fn main() {
     let out_img = image::imageops::resize(&img, frame_sync.res.0 as u32, frame_sync.res.1 as u32, image::imageops::FilterType::Lanczos3);
     out_img.save(filename).unwrap();
 
-    // test raytracer sampler
+    // // test raytracer sampler
     // let mut img = image::ImageBuffer::new(512, 512);
 
     // for _ in 0..10000 {
-    //     let v = rt.rand();
-    //     let x = 256.0 + 128.0 * v.x;
-    //     let y = 256.0 + 128.0 * v.y;
+    //     let n = Vec3f::from([0.5, 0.0, 1.0]).norm();
+    //     let r = 1.0;
+    //     let v = rt.rand(n, r);
 
-    //     img.put_pixel(x as u32, y as u32, image::Rgb::<u8>([255, 255, 255]));
+    //     img.put_pixel((128.0 + 96.0 * v.x) as u32, (128.0 - 96.0 * v.y) as u32, image::Rgb::<u8>([255, 255, 255]));
+    //     img.put_pixel((384.0 + 96.0 * v.x) as u32, (128.0 - 96.0 * v.z) as u32, image::Rgb::<u8>([255, 255, 255]));
+    //     img.put_pixel((256.0 + 96.0 * v.y) as u32, (384.0 - 96.0 * v.z) as u32, image::Rgb::<u8>([255, 255, 255]));
     // }
 
     // img.save(std::path::PathBuf::from("test.png")).unwrap();

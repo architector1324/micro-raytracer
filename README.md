@@ -19,7 +19,7 @@ raytrace --obj sph r: 0.2 rough: 1 \
          --obj pln n: -1 0 0 pos: 1 0 0 albedo: 0 1 0 rough: 1 \
          --obj pln n: 1 0 0 pos: -1 0 0 albedo: 1 0 0 rough: 1 \
          --obj pln n: 0 -1 0 pos: 0 1 0 rough: 1 \
-         --cam fov: 60 gamma: 0.8 exp: 0 \
+         --cam fov: 60 gamma: 1.0 exp: 0 \
          --bounce 16 --sample 512 \
          --res 1920 1080 --ssaa 2
 ```

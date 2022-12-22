@@ -410,6 +410,17 @@ impl From<&[f32]> for Vec3f {
     }
 }
 
+impl From<Vec3f> for Vec4f {
+    fn from(v: Vec3f) -> Self {
+        Vec4f {
+            w: 0.0,
+            x: v.x,
+            y: v.y,
+            z: v.z
+        } 
+    }
+}
+
 impl From<Vec4f> for [f32; 4] {
     fn from(v: Vec4f) -> Self {
         [v.w, v.x, v.y, v.z]
