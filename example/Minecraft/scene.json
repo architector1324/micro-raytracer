@@ -45,13 +45,13 @@
     "light": [
         {
             "type": "dir",
-            "color": "#ffd34b",
-            "dir": [0.5, 0.5, -0.5],
-            "pwr": 0.5
+            "color": "#ffd345",
+            "dir": [0, 1, -0.5],
+            "pwr": 0.7
         }
     ],
     "sky": {
-        "color": "#4976c8",
-        "pwr": 0.4
+        "color": "#517eb2",
+        "pwr": 0.3
     }
 }
