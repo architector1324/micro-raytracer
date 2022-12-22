@@ -777,8 +777,8 @@ impl Renderer {
                 let look = Mat4f::lookat(self.dir, Vec3f::up());
                 let v = rot_y * (look * hit);
                 Vec2f {
-                    x: 0.5 + v.x.rem_euclid(0.5).abs(),
-                    y: 0.5 - v.y.rem_euclid(0.5).abs()
+                    x: (v.x + 0.5).fract().abs(),
+                    y: (v.y + 0.5).fract().abs()
                 }
             },
             RendererKind::Box {sizes} => {
