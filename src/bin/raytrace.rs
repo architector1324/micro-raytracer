@@ -241,7 +241,7 @@ fn main() {
     // save output
     let filename = cli.output.unwrap_or(std::path::PathBuf::from("out.png"));
 
-    let img: image::RgbImage = image::ImageBuffer::from_fn(nw as u32, nh as u32, |x, y| {
+    let img = image::ImageBuffer::from_fn(nw as u32, nh as u32, |x, y| {
         let col = colors.lock().unwrap().get(&(x as usize, y as usize)).unwrap_or(&Vec3f::zero()).clone();
     
         // gamma correction
@@ -257,4 +257,17 @@ fn main() {
 
     let out_img = image::imageops::resize(&img, frame_sync.res.0 as u32, frame_sync.res.1 as u32, image::imageops::FilterType::Lanczos3);
     out_img.save(filename).unwrap();
+
+    // test raytracer sampler
+    // let mut img = image::ImageBuffer::new(512, 512);
+
+    // for _ in 0..10000 {
+    //     let v = rt.rand();
+    //     let x = 256.0 + 128.0 * v.x;
+    //     let y = 256.0 + 128.0 * v.y;
+
+    //     img.put_pixel(x as u32, y as u32, image::Rgb::<u8>([255, 255, 255]));
+    // }
+
+    // img.save(std::path::PathBuf::from("test.png")).unwrap();
 }

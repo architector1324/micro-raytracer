@@ -949,11 +949,14 @@ impl RayTracer {
         })
     }
 
-    fn rand(&self) -> Vec3f {
+    pub fn rand(&self) -> Vec3f {
+        let th = rand::thread_rng().sample(self.sampler) * PI;
+        let phi = (rand::thread_rng().sample(self.sampler) * 2.0 - 1.0) * PI;
+
         Vec3f {
-            x: rand::thread_rng().sample(self.sampler) * 2.0 - 1.0,
-            y: rand::thread_rng().sample(self.sampler) * 2.0 - 1.0, 
-            z: rand::thread_rng().sample(self.sampler) * 2.0 - 1.0
+            x: th.sin() * phi.cos(),
+            y: th.sin() * phi.sin(),
+            z: th.cos()
         }
     }
 
