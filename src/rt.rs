@@ -124,6 +124,9 @@ pub struct Renderer {
 
     #[serde(default = "Vec4f::forward")]
     pub dir: Vec4f,
+
+    #[serde(default)]
+    pub name: Option<String>
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -365,7 +368,8 @@ impl From<Vec<String>> for Renderer {
             },
             pos: Vec3f::default(),
             dir: Vec4f::forward(),
-            mat: Material::default()
+            mat: Material::default(),
+            name: None
         };
 
         // modify params
@@ -400,6 +404,7 @@ impl From<Vec<String>> for Renderer {
 
             // common params
             match param.as_str() {
+                "name:" => obj.name = it.next().cloned(),
                 "pos:" => obj.pos = Vec3f::parse(&mut it),
                 "dir:" => obj.dir = Vec4f::parse(&mut it),
                 "albedo:" => obj.mat.albedo = Color::parse(&mut it),
