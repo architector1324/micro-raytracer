@@ -428,7 +428,7 @@ impl From<[f32; 4]> for Vec4f {
 }
 
 pub trait ParseFromStrIter<'a> {
-    fn parse<I: Iterator<Item = &'a String>>(it: &mut I) -> Self;
+    fn parse<I: Iterator<Item = &'a String> + Clone>(it: &mut I) -> Self;
 }
 
 impl <'a> ParseFromStrIter<'a> for f32 {
@@ -438,7 +438,7 @@ impl <'a> ParseFromStrIter<'a> for f32 {
 }
 
 impl <'a> ParseFromStrIter<'a> for Vec3f {
-    fn parse<I: Iterator<Item = &'a String>>(it: &mut I) -> Self {
+    fn parse<I: Iterator<Item = &'a String> + Clone>(it: &mut I) -> Self {
         Vec3f {
             x: <f32>::parse(it),
             y: <f32>::parse(it),
@@ -448,7 +448,7 @@ impl <'a> ParseFromStrIter<'a> for Vec3f {
 }
 
 impl <'a> ParseFromStrIter<'a> for Vec4f {
-    fn parse<I: Iterator<Item = &'a String>>(it: &mut I) -> Self {
+    fn parse<I: Iterator<Item = &'a String> + Clone>(it: &mut I) -> Self {
         Vec4f {
             w: <f32>::parse(it),
             x: <f32>::parse(it),

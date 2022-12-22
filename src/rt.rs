@@ -62,6 +62,13 @@ pub struct Frame {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(untagged)]
+pub enum Color {
+    Vec3(Vec3f),
+    Hex(String)
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(default)]
 pub struct BufferF32 {
     pub w: usize,
@@ -80,7 +87,7 @@ pub enum Texture {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(default)]
 pub struct Material {
-    pub albedo: Vec3f,
+    pub albedo: Color,
     pub rough: f32,
     pub metal: f32,
     pub glass: f32,
@@ -135,12 +142,12 @@ pub struct Light {
     #[serde(flatten)]
     pub kind: LightKind,
     pub pwr: f32,
-    pub color: Vec3f
+    pub color: Color
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Sky {
-    pub color: Vec3f,
+    pub color: Color,
     pub pwr: f32
 }
 
@@ -208,7 +215,7 @@ impl Default for Frame {
 impl Default for Sky {
     fn default() -> Self {
         Sky {
-            color: Vec3f::default(),
+            color: Color::Vec3(Vec3f::zero()),
             pwr: 0.5
         }
     }
@@ -224,10 +231,16 @@ impl Default for Scene {
     }
 }
 
+impl Default for Color {
+    fn default() -> Self {
+        Color::Vec3(Vec3f::from([1.0, 1.0, 1.0]))
+    }
+}
+
 impl Default for Material {
     fn default() -> Self {
         Material {
-            albedo: Vec3f{x: 1.0, y: 1.0, z: 1.0},
+            albedo: Color::default(),
             rough: 0.0,
             metal: 0.0,
             glass: 0.0,
@@ -260,7 +273,7 @@ impl Default for Light {
                 pos: Vec3f::default()
             },
             pwr: 0.5,
-            color: Vec3f{x: 1.0, y: 1.0, z: 1.0}
+            color: Color::default()
         }
     }
 }
@@ -323,7 +336,7 @@ impl From<Vec<String>> for Light {
 
             // common params
             match param.as_str() {
-                "col:" => light.color = Vec3f::parse(&mut it),
+                "col:" => light.color = Color::parse(&mut it),
                 "pwr:" => light.pwr = <f32>::parse(&mut it),
                 _ => {
                     if !is_type_param {
@@ -389,7 +402,7 @@ impl From<Vec<String>> for Renderer {
             match param.as_str() {
                 "pos:" => obj.pos = Vec3f::parse(&mut it),
                 "dir:" => obj.dir = Vec4f::parse(&mut it),
-                "albedo:" => obj.mat.albedo = Vec3f::parse(&mut it),
+                "albedo:" => obj.mat.albedo = Color::parse(&mut it),
                 "rough:" => obj.mat.rough = <f32>::parse(&mut it),
                 "metal:" => obj.mat.metal = <f32>::parse(&mut it),
                 "glass:" => obj.mat.glass = <f32>::parse(&mut it),
@@ -526,6 +539,35 @@ impl <'a> RayHit<'a> {
 
     pub fn get_emit(&self) -> f32 {
         self.obj.get_emit(Some((&self.ray.0).into()))
+    }
+}
+
+impl Color {
+    pub fn vec3(&self) -> Vec3f {
+        if let Color::Vec3(v) = self {
+            return v.clone();
+        }
+        panic!("color is not ready!")
+    }
+
+    pub fn to_vec3(&mut self) {
+        match &self {
+            Color::Hex(s) => {
+                if s.starts_with("#") {
+                    let v = <u32>::from_str_radix(&s[1..7], 16).unwrap()
+                    .to_le_bytes()[..3]
+                    .iter()
+                    .rev()
+                    .map(|v| *v as f32 / 255.0)
+                    .collect::<Vec<_>>();
+
+                    *self = Color::Vec3(Vec3f::from(&v[..]));
+                } else {
+                    panic!("{} is not a hex color!", s);
+                }
+            },
+            _ => ()
+        }
     }
 }
 
@@ -797,10 +839,10 @@ impl Renderer {
     pub fn get_color(&self, v: Option<Vec3f>) -> Vec3f {
         if let Some(tex) = &self.mat.tex {
             if let Some(v) = v {
-                return self.mat.albedo.hadam(tex.get_color(self.to_uv(v)));
+                return self.mat.albedo.vec3().hadam(tex.get_color(self.to_uv(v)));
             }
         }
-        self.mat.albedo
+        self.mat.albedo.vec3()
     }
 
     pub fn get_rough(&self, v: Option<Vec3f>) -> f32 {
@@ -912,13 +954,13 @@ impl RayTracer {
 
     pub fn reduce_light<'a, I>(&self, scene: &'a Scene, it: I) -> Vec3f where I: Iterator<Item = (RayHit<'a>, Option<Vec<&'a Light>>)> + Clone {
         if it.clone().count() == 0 {
-            return scene.sky.color;
+            return scene.sky.color.vec3();
         }
 
         let tmp = it.collect::<Vec<_>>();
         let path = tmp.iter().rev();
 
-        path.fold(scene.sky.color * scene.sky.pwr, |col, (hit, lights)| {
+        path.fold(scene.sky.color.vec3() * scene.sky.pwr, |col, (hit, lights)| {
             // emit
             let emit = hit.get_emit();
 
@@ -939,7 +981,7 @@ impl RayTracer {
     
                     let o_col = hit.get_color() * (1.0 - hit.get_metal());
     
-                    ((o_col * diff).hadam(light.color) + spec) * light.pwr
+                    ((o_col * diff).hadam(light.color.vec3()) + spec) * light.pwr
                 }).sum()
             });
 
@@ -1015,5 +1057,18 @@ impl<'a> Iterator for RaytraceIterator<'a> {
         }
 
         None
+    }
+}
+
+impl<'a> ParseFromStrIter<'a> for Color {
+    fn parse<I: Iterator<Item = &'a String> + Clone>(it: &mut I) -> Self {
+        let tmp = it.clone().next().unwrap();
+
+        if tmp.starts_with("#") {
+            it.next();
+            return Color::Hex(tmp.clone());
+        }
+
+        Color::Vec3(Vec3f::parse(it))
     }
 }

@@ -33,8 +33,8 @@ raytrace --obj sph r: 0.15 pos: 0 0 -0.1 \
          --obj box size: 1 0.01 1 pos: 0 0.5 0 \
          --obj box size: 1 1 0.01 pos: 0 0 0.5 \
          --obj box size: 1 1 0.01 pos: 0 0 -0.5 \
-         --obj box size: 0.01 1 1 pos: -0.5 0 0 albedo: 1 0 0 \
-         --obj box size: 0.01 1 1 pos: 0.5 0 0 albedo: 0 1 0 \
+         --obj box size: 0.01 1 1 pos: -0.5 0 0 albedo: '#ff0000' \
+         --obj box size: 0.01 1 1 pos: 0.5 0 0 albedo: '#00ff00' \
          --cam pos: 0 -1.25 0 fov: 60 gamma: 0.6 exp: 0.8 \
          --sample 1024 --ssaa 2 --res 1080 1080
 ```
@@ -73,7 +73,7 @@ Options:
           Save output on each sample
   -w, --worker <WORKER>
           Parallel workers count
-  -d, --dim <DIM>
+      --dim <DIM>
           Parallel jobs count on each dimension
   -s, --scene <FILE.json>
           Scene description json input filename
@@ -85,11 +85,11 @@ Options:
           Output image SSAAx antialiasing
       --cam <pos: <f32 f32 f32>> <dir: <f32 f32 f32 f32>> <fov: <f32>> <gamma: <f32>> <exp: <f32>>...
           Add camera to the scene
-      --obj [<<type: sphere(sph)|plane(pln)|box>> <param: <sphere: r: <f32>>|<plane: n: <f32 f32 f32>>|<box: size: <f32 f32 f32>>> <pos: <f32 f32 f32>> <dir: <f32 f32 f32 f32>> <albedo: <f32 f32 f32>> <rough: <f32>> <metal: <f32>> <glass: <f32>> <opacity: <f32>> <emit: <f32>> <tex: <FILE.ext|<base64 str>>> <rmap: <FILE.ext|<base64 str>>> <mmap: <FILE.ext|<base64 str>>> <gmap: <FILE.ext|<base64 str>>> <omap: <FILE.ext|<base64 str>>> <emap: <FILE.ext|<base64 str>>>...]
+      --obj [<<type: sphere(sph)|plane(pln)|box>> <param: <sphere: r: <f32>>|<plane: n: <f32 f32 f32>>|<box: size: <f32 f32 f32>>> <pos: <f32 f32 f32>> <dir: <f32 f32 f32 f32>> <albedo: <f32 f32 f32>|hex> <rough: <f32>> <metal: <f32>> <glass: <f32>> <opacity: <f32>> <emit: <f32>> <tex: <FILE.ext|<base64 str>>> <rmap: <FILE.ext|<base64 str>>> <mmap: <FILE.ext|<base64 str>>> <gmap: <FILE.ext|<base64 str>>> <omap: <FILE.ext|<base64 str>>> <emap: <FILE.ext|<base64 str>>>...]
           Add renderer to the scene
-      --light [<param: <point(pt): <f32 f32 f32>>|<dir: <f32 f32 f32>>> <pwr: <f32>> <col: <f32 f32 f32>>...]
+      --light [<param: <point(pt): <f32 f32 f32>>|<dir: <f32 f32 f32>>> <pwr: <f32>> <col: <f32 f32 f32>|hex>...]
           Add light source to the scene
-      --sky <r> <g> <b> <pwr>
+      --sky <<f32 f32 f32>|hex> <pwr>...
           Scene sky color
   -h, --help
           Print help information
@@ -138,15 +138,15 @@ raytrace --obj sphere --light point: -0.5 -1 0.5 --res 1920 1080 --ssaa 2 -o fin
 Let's make something interesting (it will take some time):
 
 ```bash
-raytrace --obj sph r: 0.2 pos: 0.5 0.5 0 albedo: 1 0.76 0.47 emit: 1.0 \
+raytrace --obj sph r: 0.2 pos: 0.5 0.5 0 albedo: '#ffc177' emit: 1.0 \
          --obj sph r: 0.2 pos: -0.5 0 0 rough: 1 \
-         --obj sph r: 0.2 pos: 0 0.5 0 albedo: 1 0 0 \
+         --obj sph r: 0.2 pos: 0 0.5 0 albedo: '#ff0000' \
          --obj sph r: 0.2 pos: 0.5 0 0 metal: 1 \
          --obj sph r: 0.2 pos: -0.15 -0.5 0 glass: 0.08 opacity: 0 \
          --obj pln pos: 0 0 -0.201 rough: 1 \
          --obj pln n: 0 0 -1 pos: 0 0 1 rough: 1 \
-         --obj pln n: -1 0 0 pos: 1 0 0 albedo: 0 1 0 rough: 1 \
-         --obj pln n: 1 0 0 pos: -1 0 0 albedo: 1 0 0 rough: 1 \
+         --obj pln n: -1 0 0 pos: 1 0 0 albedo: '#00ff00' rough: 1 \
+         --obj pln n: 1 0 0 pos: -1 0 0 albedo: '#ff0000' rough: 1 \
          --obj pln n: 0 -1 0 pos: 0 1 0 rough: 1 \
          --cam pos: 0 -1.2 0.1 fov: 60 gamma: 0.5 exp: 0.75 \
          --bounce 16 --sample 1024

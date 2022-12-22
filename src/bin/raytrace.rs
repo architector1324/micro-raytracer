@@ -5,7 +5,7 @@ use clap::Parser;
 use serde_json::json;
 
 use micro_raytracer::lin::{Vec3f, Vec2f, ParseFromStrIter};
-use micro_raytracer::rt::{RayTracer, Scene, Frame, Camera, Light, Renderer};
+use micro_raytracer::rt::{RayTracer, Scene, Frame, Camera, Light, Renderer, Color};
 
 
 #[derive(Parser)]
@@ -57,13 +57,13 @@ struct CLI {
     #[arg(long, value_names = ["pos: <f32 f32 f32>", "dir: <f32 f32 f32 f32>", "fov: <f32>", "gamma: <f32>", "exp: <f32>"], num_args = 1..,  allow_negative_numbers = true, next_line_help = true, help = "Add camera to the scene")]
     cam: Option<Vec<String>>,
 
-    #[arg(long, value_names = ["<type: sphere(sph)|plane(pln)|box>", "param: <sphere: r: <f32>>|<plane: n: <f32 f32 f32>>|<box: size: <f32 f32 f32>>", "pos: <f32 f32 f32>", "dir: <f32 f32 f32 f32>", "albedo: <f32 f32 f32>", "rough: <f32>", "metal: <f32>", "glass: <f32>", "opacity: <f32>", "emit: <f32>", "tex: <FILE.ext|<base64 str>>", "rmap: <FILE.ext|<base64 str>>", "mmap: <FILE.ext|<base64 str>>", "gmap: <FILE.ext|<base64 str>>", "omap: <FILE.ext|<base64 str>>", "emap: <FILE.ext|<base64 str>>"], num_args = 0.., action = clap::ArgAction::Append, allow_negative_numbers = true, next_line_help = true, help = "Add renderer to the scene")]
+    #[arg(long, value_names = ["<type: sphere(sph)|plane(pln)|box>", "param: <sphere: r: <f32>>|<plane: n: <f32 f32 f32>>|<box: size: <f32 f32 f32>>", "pos: <f32 f32 f32>", "dir: <f32 f32 f32 f32>", "albedo: <f32 f32 f32>|hex", "rough: <f32>", "metal: <f32>", "glass: <f32>", "opacity: <f32>", "emit: <f32>", "tex: <FILE.ext|<base64 str>>", "rmap: <FILE.ext|<base64 str>>", "mmap: <FILE.ext|<base64 str>>", "gmap: <FILE.ext|<base64 str>>", "omap: <FILE.ext|<base64 str>>", "emap: <FILE.ext|<base64 str>>"], num_args = 0.., action = clap::ArgAction::Append, allow_negative_numbers = true, next_line_help = true, help = "Add renderer to the scene")]
     obj: Option<Vec<String>>,
 
-    #[arg(long, value_names = ["param: <point(pt): <f32 f32 f32>>|<dir: <f32 f32 f32>>", "pwr: <f32>", "col: <f32 f32 f32>"], num_args = 0.., action = clap::ArgAction::Append, allow_negative_numbers = true, next_line_help = true, help = "Add light source to the scene")]
+    #[arg(long, value_names = ["param: <point(pt): <f32 f32 f32>>|<dir: <f32 f32 f32>>", "pwr: <f32>", "col: <f32 f32 f32>|hex"], num_args = 0.., action = clap::ArgAction::Append, allow_negative_numbers = true, next_line_help = true, help = "Add light source to the scene")]
     light: Option<Vec<String>>,
 
-    #[arg(long, value_names = ["r", "g", "b", "pwr"], next_line_help = true, action = clap::ArgAction::Append, help="Scene sky color")]
+    #[arg(long, value_names = ["<f32 f32 f32>|hex", "pwr"], num_args = 1.., next_line_help = true, action = clap::ArgAction::Append, help="Scene sky color")]
     sky: Option<Vec<String>>
 }
 
@@ -141,7 +141,7 @@ fn main() {
 
     if let Some(sky) = cli.sky {
         let mut it = sky.iter();
-        scene.sky.color = Vec3f::parse(&mut it);
+        scene.sky.color = Color::parse(&mut it);
         scene.sky.pwr = <f32>::parse(&mut it);
     }
 
@@ -173,8 +173,18 @@ fn main() {
     }
 
     // unwrap textures
+    scene.sky.color.to_vec3();
+
+    if let Some(ref mut lights) = scene.light {
+        for light in lights {
+            light.color.to_vec3()
+        }
+    }
+
     if let Some(ref mut objs) = scene.renderer {
         for obj in objs {
+            obj.mat.albedo.to_vec3();
+
             if let Some(tex) = &mut obj.mat.tex {
                 tex.to_buffer();
             }
