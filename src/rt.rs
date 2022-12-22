@@ -1,4 +1,5 @@
 use rand::Rng;
+use std::path::PathBuf;
 use std::f32::consts::PI;
 use image::EncodableLayout;
 use flate2::read::GzDecoder;
@@ -17,7 +18,7 @@ pub struct RayTracer {
     pub sample: usize,
     pub loss: f32,
 
-    #[serde(skip_serializing, skip_deserializing, default = "RayTracer::default_sampler")]
+    #[serde(skip, default = "RayTracer::default_sampler")]
     pub sampler: Uniform<f32>,
 }
 
@@ -69,15 +70,11 @@ pub struct BufferF32 {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(untagged)]
 pub enum Texture {
-    #[serde(rename = "inl")]
+    Buffer(BufferF32),
     InlineBase64(String),
-
-    #[serde(rename = "file")]
-    File(String),
-
-    #[serde(rename = "buf")]
-    Buffer(BufferF32)
+    File(PathBuf),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -402,7 +399,7 @@ impl From<Vec<String>> for Renderer {
                     let s = String::from(it.next().unwrap());
 
                     obj.mat.tex = if s.contains(".") {
-                        Some(Texture::File(s))
+                        Some(Texture::File(PathBuf::from(s)))
                     } else {
                         Some(Texture::InlineBase64(s))
                     }
@@ -411,7 +408,7 @@ impl From<Vec<String>> for Renderer {
                     let s = String::from(it.next().unwrap());
 
                     obj.mat.rmap = if s.contains(".") {
-                        Some(Texture::File(s))
+                        Some(Texture::File(PathBuf::from(s)))
                     } else {
                         Some(Texture::InlineBase64(s))
                     }
@@ -420,7 +417,7 @@ impl From<Vec<String>> for Renderer {
                     let s = String::from(it.next().unwrap());
 
                     obj.mat.mmap = if s.contains(".") {
-                        Some(Texture::File(s))
+                        Some(Texture::File(PathBuf::from(s)))
                     } else {
                         Some(Texture::InlineBase64(s))
                     }
@@ -429,7 +426,7 @@ impl From<Vec<String>> for Renderer {
                     let s = String::from(it.next().unwrap());
 
                     obj.mat.gmap = if s.contains(".") {
-                        Some(Texture::File(s))
+                        Some(Texture::File(PathBuf::from(s)))
                     } else {
                         Some(Texture::InlineBase64(s))
                     }
@@ -438,7 +435,7 @@ impl From<Vec<String>> for Renderer {
                     let s = String::from(it.next().unwrap());
 
                     obj.mat.omap = if s.contains(".") {
-                        Some(Texture::File(s))
+                        Some(Texture::File(PathBuf::from(s)))
                     } else {
                         Some(Texture::InlineBase64(s))
                     }
@@ -447,7 +444,7 @@ impl From<Vec<String>> for Renderer {
                     let s = String::from(it.next().unwrap());
 
                     obj.mat.emap = if s.contains(".") {
-                        Some(Texture::File(s))
+                        Some(Texture::File(PathBuf::from(s)))
                     } else {
                         Some(Texture::InlineBase64(s))
                     }
@@ -554,15 +551,19 @@ impl Texture {
         let mut self_json = String::new();
 
         dec.read_to_string(&mut self_json).unwrap();
-
-
         serde_json::from_str::<Texture>(&self_json).unwrap()
     }
 
     pub fn to_buffer(&mut self) {
         match self {
-            Texture::File(name) => *self = Texture::load(name),
-            Texture::InlineBase64(s) => *self = Texture::from_inline(s),
+            Texture::File(name) => *self = Texture::load(name.as_os_str().to_str().unwrap()),
+            Texture::InlineBase64(s) => {
+                if s.contains(".") {
+                    *self = Texture::load(s);
+                } else {
+                    *self = Texture::from_inline(s);
+                }
+            },
             _ => ()
         }
     }

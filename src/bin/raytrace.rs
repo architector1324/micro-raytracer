@@ -38,7 +38,7 @@ struct CLI {
     #[arg(short, long, next_line_help = true, help="Parallel workers count")]
     worker: Option<usize>,
 
-    #[arg(short, long, next_line_help = true, help="Parallel jobs count on each dimension")]
+    #[arg(long, next_line_help = true, help="Parallel jobs count on each dimension")]
     dim: Option<usize>,
 
     #[arg(short, long, next_line_help = true, help = "Scene description json input filename", value_name = "FILE.json")]

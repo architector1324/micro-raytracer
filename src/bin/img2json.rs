@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use clap::Parser;
 use serde_json::json;
 
@@ -20,7 +22,7 @@ struct CLI {
 fn main() {
     let cli = CLI::parse();
 
-    let mut tex = Texture::File(cli.img);
+    let mut tex = Texture::File(PathBuf::from(cli.img));
 
     if let Some(fmt) = cli.fmt {
         match fmt.as_str() {
