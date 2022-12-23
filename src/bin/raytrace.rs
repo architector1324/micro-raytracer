@@ -9,7 +9,7 @@ use clap::Parser;
 use serde::{Serialize, Deserialize};
 
 use micro_raytracer::lin::{Vec3f, Vec2f, ParseFromStrIter};
-use micro_raytracer::rt::{RayTracer, Scene, Frame, Camera, Light, Renderer, Color};
+use micro_raytracer::rt::{RayTracer, Scene, Frame, Camera, Light, Renderer, Color, FromArgs};
 
 
 #[derive(Parser)]
@@ -74,15 +74,15 @@ struct CLI {
     sky: Option<Vec<String>>
 }
 
-trait ParseFromArgs<T: From<Vec<String>>> {
-    fn parse_args(args: &Vec<String>, pat: &[&str]) -> Vec<T>{
+trait ParseFromArgs<T: FromArgs> {
+    fn parse_args(args: &Vec<String>, pat: &[&str]) -> Result<Vec<T>, String> {
         let args_rev: Vec<_> = args.iter()
             .rev()
             .map(|v| String::from(v)).collect();
 
         args_rev.split_inclusive(|t| pat.contains(&t.as_str()))
             .map(|v| v.iter().rev())
-            .map(|obj| T::from(obj.map(|v| String::from(v)).collect::<Vec<_>>()))
+            .map(|obj| T::from_args(&obj.map(|v| String::from(v)).collect::<Vec<_>>()))
             .collect()
     }
 }
@@ -159,7 +159,7 @@ impl Sampler {
         total_time.elapsed()
     }
 
-    fn save(&self, filename: &PathBuf, frame: &Frame) {
+    fn save(&self, filename: &PathBuf, frame: &Frame) -> Result<(), String> {
         let nw = (frame.res.0 as f32 * frame.ssaa) as usize;
         let nh = (frame.res.1 as f32 * frame.ssaa) as usize;
     
@@ -178,7 +178,7 @@ impl Sampler {
         });
 
         let out_img = image::imageops::resize(&img, frame.res.0 as u32, frame.res.1 as u32, image::imageops::FilterType::Lanczos3);
-        out_img.save(&filename).unwrap();
+        out_img.save(&filename).map_err(|e| e.to_string())
     }
 }
 
@@ -205,126 +205,134 @@ impl Default for Render {
     }
 }
 
-fn main() {
-    // parse cli
+impl CLI {
+    fn parse_render(&self) -> Result<Render, String> {
+        let mut render = Render::default();
+
+        // prase full
+        if let Some(full_json_filename) = &self.full {
+            let full_json = std::fs::read_to_string(full_json_filename).map_err(|e| e.to_string())?;
+            render = serde_json::from_str(full_json.as_str()).map_err(|e| e.to_string())?;
+        }
+
+        if let Some(bounce) = self.bounce {
+            render.rt.bounce = bounce
+        }
+
+        if let Some(sample) = self.sample {
+            render.rt.sample = sample;
+        }
+
+        if let Some(loss) = self.loss {
+            render.rt.loss = loss;
+        }
+
+        // parse frame
+        if let Some(frame_json_filename) = &self.frame {
+            let frame_json = std::fs::read_to_string(frame_json_filename).map_err(|e| e.to_string())?;
+            render.frame = serde_json::from_str(frame_json.as_str()).map_err(|e| e.to_string())?;
+        }
+
+        if let Some(pair) = &self.res {
+            render.frame.res = (
+                pair.get(0).ok_or("unexpected ends!")?.clone(),
+                pair.get(1).ok_or("unexpected ends!")?.clone()
+            );
+        }
+
+        if let Some(ssaa) = self.ssaa {
+            render.frame.ssaa = ssaa;
+        }
+
+        if let Some(cam_args) = &self.cam {
+            render.frame.cam = Camera::from_args(cam_args)?;
+        }
+
+        // get scene
+        if let Some(scene_json_filename) = &self.scene {
+            let scene_json = std::fs::read_to_string(scene_json_filename).map_err(|e| e.to_string())?;
+            render.scene = serde_json::from_str(scene_json.as_str()).map_err(|e| e.to_string())?;
+        }
+
+        if let Some(objs_args) = &self.obj {
+            let new_objs = Scene::parse_args(&objs_args, &["sphere", "sph", "plane", "pln", "box"])?;
+
+            if let Some(ref mut objs) = render.scene.renderer {
+                objs.extend(new_objs);
+            } else {
+                render.scene.renderer = Some(new_objs);
+            }
+        }
+
+        if let Some(lights_args) = &self.light {
+            let new_lights = Scene::parse_args(&lights_args, &["pt:", "point:", "dir:"])?;
+
+            if let Some(ref mut lights) = render.scene.light {
+                lights.extend(new_lights);
+            } else {
+                render.scene.light = Some(new_lights);
+            }
+        }
+
+        if let Some(sky) = &self.sky {
+            let mut it = sky.iter();
+            render.scene.sky.color = Color::parse(&mut it)?;
+            render.scene.sky.pwr = <f32>::parse(&mut it)?;
+        }
+
+        Ok(render)
+    }
+}
+
+fn main_wrapped() -> Result<(), String> {
+    // parse render
     let cli = CLI::parse();
 
-    let mut render = Render::default();
-
-    // prase full
-    if let Some(full_json_filename) = cli.full {
-        let full_json = std::fs::read_to_string(full_json_filename).unwrap();
-        render = serde_json::from_str(full_json.as_str()).unwrap();
-    }
-
-    if let Some(bounce) = cli.bounce {
-        render.rt.bounce = bounce
-    }
-
-    if let Some(sample) = cli.sample {
-        render.rt.sample = sample;
-    }
-
-    if let Some(loss) = cli.loss {
-        render.rt.loss = loss;
-    }
-
-    // parse frame
-    if let Some(frame_json_filename) = cli.frame {
-        let frame_json = std::fs::read_to_string(frame_json_filename).unwrap();
-        render.frame = serde_json::from_str(frame_json.as_str()).unwrap();
-    }
-
-    if let Some(pair) = cli.res {
-        render.frame.res = (
-            pair.get(0).unwrap().clone(),
-            pair.get(1).unwrap().clone()
-        );
-    }
-
-    if let Some(ssaa) = cli.ssaa {
-        render.frame.ssaa = ssaa;
-    }
-
-    if let Some(cam_args) = cli.cam {
-        render.frame.cam = Camera::from(cam_args);
-    }
-
-    // get scene
-    if let Some(scene_json_filename) = cli.scene {
-        let scene_json = std::fs::read_to_string(scene_json_filename).unwrap();
-        render.scene = serde_json::from_str(scene_json.as_str()).unwrap();
-    }
-
-    if let Some(objs_args) = cli.obj {
-        let new_objs = Scene::parse_args(&objs_args, &["sphere", "sph", "plane", "pln", "box"]);
-
-        if let Some(ref mut objs) = render.scene.renderer {
-            objs.extend(new_objs);
-        } else {
-            render.scene.renderer = Some(new_objs);
-        }
-    }
-
-    if let Some(lights_args) = cli.light {
-        let new_lights = Scene::parse_args(&lights_args, &["pt:", "point:", "dir:"]);
-
-        if let Some(ref mut lights) = render.scene.light {
-            lights.extend(new_lights);
-        } else {
-            render.scene.light = Some(new_lights);
-        }
-    }
-
-    if let Some(sky) = cli.sky {
-        let mut it = sky.iter();
-        render.scene.sky.color = Color::parse(&mut it);
-        render.scene.sky.pwr = <f32>::parse(&mut it);
-    }
+    let mut render = cli.parse_render()?;
 
     // verbose
     if cli.verbose {
         if cli.pretty {
-            println!("{}", serde_json::to_string_pretty(&render).unwrap());
+            println!("{}", serde_json::to_string_pretty(&render).map_err(|e| e.to_string())?);
         } else {
-            println!("{}", serde_json::to_string(&render).unwrap());
+            println!("{}", serde_json::to_string(&render).map_err(|e| e.to_string())?);
         }
     }
 
     if cli.dry {
-        return;
+        return Ok(());
     }
 
     // unwrap textures
-    render.scene.sky.color.to_vec3();
+    render.scene.sky.color.to_vec3()?;
 
     if let Some(ref mut lights) = render.scene.light {
         for light in lights {
-            light.color.to_vec3()
+            light.color.to_vec3()?
         }
     }
 
     if let Some(ref mut objs) = render.scene.renderer {
         for obj in objs {
-            obj.mat.albedo.to_vec3();
+            obj.mat.albedo.to_vec3()?;
 
             if let Some(tex) = &mut obj.mat.tex {
-                tex.to_buffer();
+                tex.to_buffer()?;
             }
             if let Some(rmap) = &mut obj.mat.rmap {
-                rmap.to_buffer();
+                rmap.to_buffer()?;
             }
             if let Some(mmap) = &mut obj.mat.mmap {
-                mmap.to_buffer();
+                mmap.to_buffer()?;
             }
             if let Some(gmap) = &mut obj.mat.gmap {
-                gmap.to_buffer();
+                gmap.to_buffer()?;
             }
             if let Some(omap) = &mut obj.mat.omap {
-                omap.to_buffer();
+                omap.to_buffer()?;
             }
             if let Some(emap) = &mut obj.mat.emap {
-                emap.to_buffer();
+                emap.to_buffer()?;
             }
         }
     }
@@ -339,25 +347,17 @@ fn main() {
         // println!("total {:?}", time);
 
         if cli.update {
-            sampler.save(&filename, &render.frame);
+            sampler.save(&filename, &render.frame)?;
         }
     }
 
     // save output
-    sampler.save(&filename, &render.frame);
+    sampler.save(&filename, &render.frame)?;
+    Ok(())
+}
 
-    // // test raytracer sampler
-    // let mut img = image::ImageBuffer::new(512, 512);
-
-    // for _ in 0..10000 {
-    //     let n = Vec3f::from([0.5, 0.0, 1.0]).norm();
-    //     let r = 1.0;
-    //     let v = render.rt.rand(n, r);
-
-    //     img.put_pixel((128.0 + 96.0 * v.x) as u32, (128.0 - 96.0 * v.y) as u32, image::Rgb::<u8>([255, 255, 255]));
-    //     img.put_pixel((384.0 + 96.0 * v.x) as u32, (128.0 - 96.0 * v.z) as u32, image::Rgb::<u8>([255, 255, 255]));
-    //     img.put_pixel((256.0 + 96.0 * v.y) as u32, (384.0 - 96.0 * v.z) as u32, image::Rgb::<u8>([255, 255, 255]));
-    // }
-
-    // img.save(PathBuf::from("test.png")).unwrap();
+fn main() {
+    if let Err(e) = main_wrapped() {
+        println!("{{err: \"{}\"}}", e.to_string());
+    }
 }

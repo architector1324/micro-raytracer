@@ -285,27 +285,31 @@ impl Default for Light {
     }
 }
 
-impl From<Vec<String>> for Camera {
-    fn from(args: Vec<String>) -> Self {
+pub trait FromArgs: Sized {
+    fn from_args(args: &Vec<String>) -> Result<Self, String>;
+}
+
+impl FromArgs for Camera {
+    fn from_args(args: &Vec<String>) -> Result<Self, String> {
         let mut it = args.iter();
         let mut cam = Camera::default();
 
         while let Some(param) = it.next() {
             match param.as_str() {
-                "pos:" => cam.pos = Vec3f::parse(&mut it),
-                "dir:" => cam.dir = Vec4f::parse(&mut it),
-                "fov:" => cam.fov = <f32>::parse(&mut it),
-                "gamma:" => cam.gamma = <f32>::parse(&mut it),
-                "exp:" => cam.exp = <f32>::parse(&mut it),
-                _ => panic!("`{}` param for `cam` is unxpected!", param)
+                "pos:" => cam.pos = Vec3f::parse(&mut it)?,
+                "dir:" => cam.dir = Vec4f::parse(&mut it)?,
+                "fov:" => cam.fov = <f32>::parse(&mut it)?,
+                "gamma:" => cam.gamma = <f32>::parse(&mut it)?,
+                "exp:" => cam.exp = <f32>::parse(&mut it)?,
+                _ => return Err(format!("`{}` param for `cam` is unxpected!", param))
             }
         }
-        cam 
+        Ok(cam) 
     }
 }
 
-impl From<Vec<String>> for Light {
-    fn from(args: Vec<String>) -> Self {
+impl FromArgs for Light {
+    fn from_args(args: &Vec<String>) -> Result<Self, String> {
         let t = &args[0];
         let mut it = args.iter();
 
@@ -314,7 +318,7 @@ impl From<Vec<String>> for Light {
             kind: match t.as_str() {
                 "pt:" | "point:" => LightKind::Point {pos: Vec3f::default()},
                 "dir:" => LightKind::Dir {dir: Vec3f{x: 0.0, y: 1.0, z: 0.0}},
-                _ => panic!("`{}` type is unxpected!", t)
+                _ => return Err(format!("`{}` type is unxpected!", t))
             },
             ..Default::default()
         };
@@ -325,7 +329,7 @@ impl From<Vec<String>> for Light {
             let is_type_param = match light.kind {
                 LightKind::Point {ref mut pos} => {
                     if param.as_str() == "pt:" || param.as_str() == "point:" {
-                        *pos = Vec3f::parse(&mut it);
+                        *pos = Vec3f::parse(&mut it)?;
                         true
                     } else {
                         false
@@ -333,7 +337,7 @@ impl From<Vec<String>> for Light {
                 },
                 LightKind::Dir {ref mut dir} => {
                     if param.as_str() == "dir:" {
-                        *dir = Vec3f::parse(&mut it).norm();
+                        *dir = Vec3f::parse(&mut it)?.norm();
                         true
                     } else {
                         false
@@ -343,22 +347,22 @@ impl From<Vec<String>> for Light {
 
             // common params
             match param.as_str() {
-                "col:" => light.color = Color::parse(&mut it),
-                "pwr:" => light.pwr = <f32>::parse(&mut it),
+                "col:" => light.color = Color::parse(&mut it)?,
+                "pwr:" => light.pwr = <f32>::parse(&mut it)?,
                 _ => {
                     if !is_type_param {
-                        panic!("`{}` param for `light` is unxpected!", param);
+                        return Err(format!("`{}` param for `light` is unxpected!", param));
                     }
                 }
             }
         }
 
-        light
+        Ok(light)
     }
 }
 
-impl From<Vec<String>> for Renderer {
-    fn from(args: Vec<String>) -> Self {
+impl FromArgs for Renderer {
+    fn from_args(args: &Vec<String>) -> Result<Self, String> {
         let t = &args[0];
         let mut it = args.iter().skip(1);
 
@@ -368,7 +372,7 @@ impl From<Vec<String>> for Renderer {
                 "sph" | "sphere" => RendererKind::Sphere {r: 0.5},
                 "pln" | "plane" => RendererKind::Plane {n: Vec3f{x: 0.0, y: 0.0, z: 1.0}},
                 "box" => RendererKind::Box {sizes: Vec3f{x: 0.5, y: 0.5, z: 0.5}},
-                _ => panic!("`{}` type is unxpected!", t)
+                _ => return Err(format!("`{}` type is unxpected!", t))
             },
             pos: Vec3f::default(),
             dir: Vec4f::forward(),
@@ -382,7 +386,7 @@ impl From<Vec<String>> for Renderer {
             let is_type_param = match obj.kind {
                 RendererKind::Sphere {ref mut r} => {
                     if param.as_str() == "r:" {
-                        *r = <f32>::parse(&mut it);
+                        *r = <f32>::parse(&mut it)?;
                         true
                     } else {
                         false
@@ -390,7 +394,7 @@ impl From<Vec<String>> for Renderer {
                 },
                 RendererKind::Plane{ref mut n} => {
                     if param.as_str() == "n:" {
-                        *n = Vec3f::parse(&mut it);
+                        *n = Vec3f::parse(&mut it)?;
                         true
                     } else {
                         false
@@ -398,7 +402,7 @@ impl From<Vec<String>> for Renderer {
                 },
                 RendererKind::Box {ref mut sizes} => {
                     if param.as_str() == "size:" {
-                        *sizes = Vec3f::parse(&mut it);
+                        *sizes = Vec3f::parse(&mut it)?;
                         true
                     } else {
                         false
@@ -409,16 +413,16 @@ impl From<Vec<String>> for Renderer {
             // common params
             match param.as_str() {
                 "name:" => obj.name = it.next().cloned(),
-                "pos:" => obj.pos = Vec3f::parse(&mut it),
-                "dir:" => obj.dir = Vec4f::parse(&mut it),
-                "albedo:" => obj.mat.albedo = Color::parse(&mut it),
-                "rough:" => obj.mat.rough = <f32>::parse(&mut it),
-                "metal:" => obj.mat.metal = <f32>::parse(&mut it),
-                "glass:" => obj.mat.glass = <f32>::parse(&mut it),
-                "opacity:" => obj.mat.opacity = <f32>::parse(&mut it),
-                "emit:" => obj.mat.emit = <f32>::parse(&mut it),
+                "pos:" => obj.pos = Vec3f::parse(&mut it)?,
+                "dir:" => obj.dir = Vec4f::parse(&mut it)?,
+                "albedo:" => obj.mat.albedo = Color::parse(&mut it)?,
+                "rough:" => obj.mat.rough = <f32>::parse(&mut it)?,
+                "metal:" => obj.mat.metal = <f32>::parse(&mut it)?,
+                "glass:" => obj.mat.glass = <f32>::parse(&mut it)?,
+                "opacity:" => obj.mat.opacity = <f32>::parse(&mut it)?,
+                "emit:" => obj.mat.emit = <f32>::parse(&mut it)?,
                 "tex:" => {
-                    let s = String::from(it.next().unwrap());
+                    let s = String::from(it.next().ok_or(String::from("unexpected ended!"))?);
 
                     obj.mat.tex = if s.contains(".") {
                         Some(Texture::File(PathBuf::from(s)))
@@ -427,7 +431,7 @@ impl From<Vec<String>> for Renderer {
                     }
                 },
                 "rmap:" => {
-                    let s = String::from(it.next().unwrap());
+                    let s = String::from(it.next().ok_or(String::from("unexpected ended!"))?);
 
                     obj.mat.rmap = if s.contains(".") {
                         Some(Texture::File(PathBuf::from(s)))
@@ -436,7 +440,7 @@ impl From<Vec<String>> for Renderer {
                     }
                 },
                 "mmap:" => {
-                    let s = String::from(it.next().unwrap());
+                    let s = String::from(it.next().ok_or(String::from("unexpected ended!"))?);
 
                     obj.mat.mmap = if s.contains(".") {
                         Some(Texture::File(PathBuf::from(s)))
@@ -445,7 +449,7 @@ impl From<Vec<String>> for Renderer {
                     }
                 },
                 "gmap:" => {
-                    let s = String::from(it.next().unwrap());
+                    let s = String::from(it.next().ok_or(String::from("unexpected ended!"))?);
 
                     obj.mat.gmap = if s.contains(".") {
                         Some(Texture::File(PathBuf::from(s)))
@@ -454,7 +458,7 @@ impl From<Vec<String>> for Renderer {
                     }
                 },
                 "omap:" => {
-                    let s = String::from(it.next().unwrap());
+                    let s = String::from(it.next().ok_or(String::from("unexpected ended!"))?);
 
                     obj.mat.omap = if s.contains(".") {
                         Some(Texture::File(PathBuf::from(s)))
@@ -463,7 +467,7 @@ impl From<Vec<String>> for Renderer {
                     }
                 },
                 "emap:" => {
-                    let s = String::from(it.next().unwrap());
+                    let s = String::from(it.next().ok_or(String::from("unexpected ended!"))?);
 
                     obj.mat.emap = if s.contains(".") {
                         Some(Texture::File(PathBuf::from(s)))
@@ -473,12 +477,12 @@ impl From<Vec<String>> for Renderer {
                 },
                 _ => {
                     if !is_type_param {
-                        panic!("`{}` param for `{}` is unxpected!", param, t);
+                        return Err(format!("`{}` param for `{}` is unxpected!", param, t));
                     } 
                 }
             };
         }
-        obj
+        Ok(obj)
     }
 }
 
@@ -559,11 +563,11 @@ impl Color {
         panic!("color is not ready!")
     }
 
-    pub fn to_vec3(&mut self) {
+    pub fn to_vec3(&mut self) -> Result<(), String> {
         match &self {
             Color::Hex(s) => {
                 if s.starts_with("#") {
-                    let v = <u32>::from_str_radix(&s[1..7], 16).unwrap()
+                    let v = <u32>::from_str_radix(&s[1..7], 16).map_err(|e| e.to_string())?
                     .to_le_bytes()[..3]
                     .iter()
                     .rev()
@@ -577,60 +581,63 @@ impl Color {
             },
             _ => ()
         }
+        Ok(())
     }
 }
 
 impl Texture {
-    pub fn load(name: &str) -> Texture {
-        let mut tmp = image::open(name).unwrap();
-        let img = tmp.as_mut_rgb8().unwrap();
+    pub fn load(name: &str) -> Result<Texture, String> {
+        let mut tmp = image::open(name).map_err(|e| e.to_string())?;
+        let img = tmp.as_mut_rgb8().ok_or(String::from("is not rgb888 image!"))?;
         let size = img.dimensions();
 
         let out = img.pixels().map(|px| Vec3f::from(px.0.map(|v| v as f32 / 255.0))).collect();
 
-        Texture::Buffer(BufferF32 {
+        Ok(Texture::Buffer(BufferF32 {
             w: size.0 as usize,
             h: size.1 as usize,
             dat: Some(out)
-        })
+        }))
     }
 
-    pub fn from_inline(s: &str) -> Texture {
-        let decoded = base64::decode(s).unwrap();
+    pub fn from_inline(s: &str) -> Result<Texture, String> {
+        let decoded = base64::decode(s).map_err(|e| e.to_string())?;
 
         let mut dec = GzDecoder::new(decoded.as_bytes());
         let mut self_json = String::new();
 
-        dec.read_to_string(&mut self_json).unwrap();
-        serde_json::from_str::<Texture>(&self_json).unwrap()
+        dec.read_to_string(&mut self_json).map_err(|e| e.to_string())?;
+        Ok(serde_json::from_str::<Texture>(&self_json).map_err(|e| e.to_string())?)
     }
 
-    pub fn to_buffer(&mut self) {
+    pub fn to_buffer(&mut self) -> Result<(), String> {
         match self {
-            Texture::File(name) => *self = Texture::load(name.as_os_str().to_str().unwrap()),
+            Texture::File(name) => *self = Texture::load(name.as_os_str().to_str().ok_or(String::from("cannot convert to string!"))?)?,
             Texture::InlineBase64(s) => {
                 if s.contains(".") {
-                    *self = Texture::load(s);
+                    *self = Texture::load(s)?;
                 } else {
-                    *self = Texture::from_inline(s);
+                    *self = Texture::from_inline(s)?;
                 }
             },
             _ => ()
         }
+        Ok(())
     }
 
-    pub fn to_inline(&mut self) {
-        self.to_buffer();
+    pub fn to_inline(&mut self) -> Result<(), String>{
+        self.to_buffer()?;
 
-        let s = serde_json::to_string(self).unwrap();
+        let s = serde_json::to_string(self).map_err(|e| e.to_string())?;
 
         let mut enc = GzEncoder::new(vec![], flate2::Compression::best());
-        enc.write_all(s.as_bytes()).unwrap();
+        enc.write_all(s.as_bytes()).map_err(|e| e.to_string())?;
 
-        let compress = enc.finish().unwrap();
+        let compress = enc.finish().map_err(|e| e.to_string())?;
         let encoded = base64::encode(compress);
 
         *self = Texture::InlineBase64(encoded);
+        Ok(())
     }
 
     pub fn get_color(&self, uv: Vec2f) -> Vec3f {
@@ -1072,14 +1079,14 @@ impl<'a> Iterator for RaytraceIterator<'a> {
 }
 
 impl<'a> ParseFromStrIter<'a> for Color {
-    fn parse<I: Iterator<Item = &'a String> + Clone>(it: &mut I) -> Self {
-        let tmp = it.clone().next().unwrap();
+    fn parse<I: Iterator<Item = &'a String> + Clone>(it: &mut I) -> Result<Color, String> {
+        let tmp = it.clone().next().ok_or("unexpected ends!")?;
 
         if tmp.starts_with("#") {
             it.next();
-            return Color::Hex(tmp.clone());
+            return Ok(Color::Hex(tmp.clone()));
         }
 
-        Color::Vec3(Vec3f::parse(it))
+        Ok(Color::Vec3(Vec3f::parse(it)?))
     }
 }

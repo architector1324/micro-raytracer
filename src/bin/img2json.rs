@@ -26,12 +26,12 @@ fn main() {
 
     if let Some(fmt) = cli.fmt {
         match fmt.as_str() {
-            "buf" => tex.to_buffer(),
-            "inl" => tex.to_inline(),
+            "buf" => tex.to_buffer().unwrap(),
+            "inl" => tex.to_inline().unwrap(),
             _ => panic!("unknown texture format {}!", fmt.as_str())
         }
     } else {
-        tex.to_buffer();
+        tex.to_buffer().unwrap();
     }
 
     let tex_json = json!({
