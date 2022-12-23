@@ -1,11 +1,12 @@
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use scoped_threadpool::Pool;
 
 use clap::Parser;
-use serde_json::json;
+use serde::{Serialize, Deserialize};
 
 use micro_raytracer::lin::{Vec3f, Vec2f, ParseFromStrIter};
 use micro_raytracer::rt::{RayTracer, Scene, Frame, Camera, Light, Renderer, Color};
@@ -14,17 +15,17 @@ use micro_raytracer::rt::{RayTracer, Scene, Frame, Camera, Light, Renderer, Colo
 #[derive(Parser)]
 #[command(author, version, about = "Tiny raytracing microservice.", long_about = None)]
 struct CLI {
-    #[arg(short, long, action, next_line_help = true, help = "Print full info in json")]
+    #[arg(short, long, action, next_line_help = true, help = "Print full render info in json")]
     verbose: bool,
 
-    #[arg(long, action, next_line_help = true, help = "Print full info in json with prettifier")]
+    #[arg(long, action, next_line_help = true, help = "Print full render info in json with prettifier")]
     pretty: bool,
 
     #[arg(short, long, action, next_line_help = true, help = "Dry run (useful with verbose)")]
     dry: bool,
 
     #[arg(short, long, next_line_help = true, help = "Final image output filename", value_name = "FILE.EXT")]
-    output: Option<std::path::PathBuf>,
+    output: Option<PathBuf>,
 
     #[arg(long, next_line_help = true, help="Max ray bounce")]
     bounce: Option<usize>,
@@ -45,10 +46,13 @@ struct CLI {
     dim: Option<usize>,
 
     #[arg(short, long, next_line_help = true, help = "Scene description json input filename", value_name = "FILE.json")]
-    scene: Option<std::path::PathBuf>,
+    scene: Option<PathBuf>,
 
     #[arg(short, long, next_line_help = true, help = "Frame description json input filename", value_name = "FILE.json")]
-    frame: Option<std::path::PathBuf>,
+    frame: Option<PathBuf>,
+
+    #[arg(long, next_line_help = true, help = "Full render description json input filename", value_name = "FILE.json")]
+    full: Option<PathBuf>,
 
     #[arg(long, value_names = ["w", "h"], next_line_help = true, help = "Frame output image resolution")]
     res: Option<Vec<u16>>,
@@ -155,7 +159,7 @@ impl Sampler {
         total_time.elapsed()
     }
 
-    fn save(&self, filename: &std::path::PathBuf, frame: &Frame) {
+    fn save(&self, filename: &PathBuf, frame: &Frame) {
         let nw = (frame.res.0 as f32 * frame.ssaa) as usize;
         let nh = (frame.res.1 as f32 * frame.ssaa) as usize;
     
@@ -178,88 +182,121 @@ impl Sampler {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+struct Render {
+    rt: RayTracer,
+    frame: Frame,
+    scene: Scene
+}
+
+impl Default for Render {
+    fn default() -> Self {
+        Render {
+            rt: RayTracer {
+                bounce: 8,
+                sample: 16,
+                loss: 0.15,
+                ..RayTracer::default()
+            },
+            frame: Frame::default(),
+            scene: Scene::default()
+        }
+    }
+}
 
 fn main() {
     // parse cli
     let cli = CLI::parse();
 
-    // get frame
-    let mut frame = Frame::default();
+    // let mut frame = Frame::default();
+    // let mut scene = Scene::default();
+    
+    // let rt = RayTracer{
+    //     bounce: cli.bounce.unwrap_or(8),
+    //     sample: cli.sample.unwrap_or(16),
+    //     loss: cli.loss.unwrap_or(0.15),
+    //     ..RayTracer::default()
+    // };
 
+    let mut render = Render::default();
+
+    // prase full
+    if let Some(full_json_filename) = cli.full {
+        let full_json = std::fs::read_to_string(full_json_filename).unwrap();
+        render = serde_json::from_str(full_json.as_str()).unwrap();
+    }
+
+    if let Some(bounce) = cli.bounce {
+        render.rt.bounce = bounce
+    }
+
+    if let Some(sample) = cli.sample {
+        render.rt.sample = sample;
+    }
+
+    if let Some(loss) = cli.loss {
+        render.rt.loss = loss;
+    }
+
+    // parse frame
     if let Some(frame_json_filename) = cli.frame {
         let frame_json = std::fs::read_to_string(frame_json_filename).unwrap();
-        frame = serde_json::from_str(frame_json.as_str()).unwrap();
+        render.frame = serde_json::from_str(frame_json.as_str()).unwrap();
     }
 
     if let Some(pair) = cli.res {
-        frame.res = (
+        render.frame.res = (
             pair.get(0).unwrap().clone(),
             pair.get(1).unwrap().clone()
         );
     }
 
     if let Some(ssaa) = cli.ssaa {
-        frame.ssaa = ssaa;
+        render.frame.ssaa = ssaa;
     }
 
     if let Some(cam_args) = cli.cam {
-        frame.cam = Camera::from(cam_args);
+        render.frame.cam = Camera::from(cam_args);
     }
 
     // get scene
-    let mut scene = Scene::default();
-
     if let Some(scene_json_filename) = cli.scene {
         let scene_json = std::fs::read_to_string(scene_json_filename).unwrap();
-        scene = serde_json::from_str(scene_json.as_str()).unwrap();
+        render.scene = serde_json::from_str(scene_json.as_str()).unwrap();
     }
 
     if let Some(objs_args) = cli.obj {
         let new_objs = Scene::parse_args(&objs_args, &["sphere", "sph", "plane", "pln", "box"]);
 
-        if let Some(ref mut objs) = scene.renderer {
+        if let Some(ref mut objs) = render.scene.renderer {
             objs.extend(new_objs);
         } else {
-            scene.renderer = Some(new_objs);
+            render.scene.renderer = Some(new_objs);
         }
     }
 
     if let Some(lights_args) = cli.light {
         let new_lights = Scene::parse_args(&lights_args, &["pt:", "point:", "dir:"]);
 
-        if let Some(ref mut lights) = scene.light {
+        if let Some(ref mut lights) = render.scene.light {
             lights.extend(new_lights);
         } else {
-            scene.light = Some(new_lights);
+            render.scene.light = Some(new_lights);
         }
     }
 
     if let Some(sky) = cli.sky {
         let mut it = sky.iter();
-        scene.sky.color = Color::parse(&mut it);
-        scene.sky.pwr = <f32>::parse(&mut it);
+        render.scene.sky.color = Color::parse(&mut it);
+        render.scene.sky.pwr = <f32>::parse(&mut it);
     }
 
-    // setup raytacer
-    let rt = RayTracer{
-        bounce: cli.bounce.unwrap_or(8),
-        sample: cli.sample.unwrap_or(16),
-        loss: cli.loss.unwrap_or(0.15),
-        ..RayTracer::default()
-    };
-
     // verbose
-    let info_json = json!({
-        "scene": scene,
-        "frame": frame,
-        "rt": rt,
-    });
-
     if cli.verbose {
         if cli.pretty {
-            println!("{}", serde_json::to_string_pretty(&info_json).unwrap());
+            println!("{}", serde_json::to_string_pretty(&render).unwrap());
         } else {
-            println!("{}", info_json.to_string());
+            println!("{}", serde_json::to_string(&render).unwrap());
         }
     }
 
@@ -268,15 +305,15 @@ fn main() {
     }
 
     // unwrap textures
-    scene.sky.color.to_vec3();
+    render.scene.sky.color.to_vec3();
 
-    if let Some(ref mut lights) = scene.light {
+    if let Some(ref mut lights) = render.scene.light {
         for light in lights {
             light.color.to_vec3()
         }
     }
 
-    if let Some(ref mut objs) = scene.renderer {
+    if let Some(ref mut objs) = render.scene.renderer {
         for obj in objs {
             obj.mat.albedo.to_vec3();
 
@@ -303,20 +340,20 @@ fn main() {
 
     // raytrace
     let mut sampler = Sampler::new(cli.worker.unwrap_or(24), cli.dim.unwrap_or(64));
-    let filename = cli.output.unwrap_or(std::path::PathBuf::from("out.png"));
+    let filename = cli.output.unwrap_or(PathBuf::from("out.png"));
 
-    for _ in 0..rt.sample {
-        let time = sampler.execute(&scene, &frame, &rt);
+    for _ in 0..render.rt.sample {
+        let time = sampler.execute(&render.scene, &render.frame, &render.rt);
 
         // println!("total {:?}", time);
 
         if cli.update {
-            sampler.save(&filename, &frame);
+            sampler.save(&filename, &render.frame);
         }
     }
 
     // save output
-    sampler.save(&filename, &frame);
+    sampler.save(&filename, &render.frame);
 
     // // test raytracer sampler
     // let mut img = image::ImageBuffer::new(512, 512);
@@ -324,12 +361,12 @@ fn main() {
     // for _ in 0..10000 {
     //     let n = Vec3f::from([0.5, 0.0, 1.0]).norm();
     //     let r = 1.0;
-    //     let v = rt.rand(n, r);
+    //     let v = render.rt.rand(n, r);
 
     //     img.put_pixel((128.0 + 96.0 * v.x) as u32, (128.0 - 96.0 * v.y) as u32, image::Rgb::<u8>([255, 255, 255]));
     //     img.put_pixel((384.0 + 96.0 * v.x) as u32, (128.0 - 96.0 * v.z) as u32, image::Rgb::<u8>([255, 255, 255]));
     //     img.put_pixel((256.0 + 96.0 * v.y) as u32, (384.0 - 96.0 * v.z) as u32, image::Rgb::<u8>([255, 255, 255]));
     // }
 
-    // img.save(std::path::PathBuf::from("test.png")).unwrap();
+    // img.save(PathBuf::from("test.png")).unwrap();
 }

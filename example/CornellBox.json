@@ -1,0 +1,106 @@
+{
+    "rt": {
+        "bounce": 8,
+        "sample": 16,
+        "loss": 0.15
+    },
+    "frame": {
+        "res": [1280, 720],
+        "ssaa": 1,
+        "cam": {
+            "dir": [0, 0, 1, 0],
+            "exp": 0.75,
+            "fov": 60,
+            "gamma": 0.5,
+            "pos": [0, -1.2, 0.1]
+        }
+    },
+    "scene": {
+        "renderer": [
+            {
+                "type": "plane",
+                "n": [0, -1, 0],
+                "pos": [0, 1, 0],
+                "mat": {
+                    "rough": 1
+                }
+            },
+            {
+                "type": "plane",
+                "n": [1, 0, 0],
+                "pos": [-1, 0, 0],
+                "mat": {
+                    "albedo": "#ff0000",
+                    "rough": 1
+                }
+            },
+            {
+                "type": "plane",
+                "n": [-1, 0, 0],
+                "pos": [1, 0, 0],
+                "mat": {
+                    "albedo": "#00ff00",
+                    "rough": 1
+                }
+            },
+            {
+                "type": "plane",
+                "n": [0, 0, -1],
+                "pos": [0, 0, 1],
+                "mat": {
+                    "rough": 1
+                }
+            },
+            {
+                "type": "plane",
+                "n": [0, 0, 1],
+                "pos": [0, 0, -0.2],
+                "mat": {
+                    "rough": 1
+                }
+            },
+            {
+                "type": "sphere",
+                "r": 0.2,
+                "pos": [-0.15, -0.5, 0],
+                "mat": {
+                    "glass": 0.08,
+                    "opacity": 0
+                }
+            },
+            {
+                "type": "sphere",
+                "r": 0.2,
+                "pos": [0.5, 0, 0],
+                "mat": {
+                    "metal": 1
+                }
+            },
+            {
+                "type": "sphere",
+                "r": 0.2,
+                "pos": [0, 0.5, 0],
+                "mat": {
+                    "albedo": "#ff0000"
+                }
+            },
+            {
+                "type": "sphere",
+                "r": 0.2,
+                "pos": [-0.5, 0, 0],
+                "mat": {
+                    "rough": 1
+                }
+            },
+            {
+                "type": "sphere",
+                "r": 0.2,
+                "pos": [0.5, 0.5, 0],
+                "mat": {
+                    "albedo": "#ffc177",
+                    "emit": 1.0
+                }
+            }
+        ]
+    }    
+}

@@ -56,9 +56,9 @@ Usage: raytrace [OPTIONS]
 
 Options:
   -v, --verbose
-          Print full info in json
+          Print full render info in json
       --pretty
-          Print full info in json with prettifier
+          Print full render info in json with prettifier
   -d, --dry
           Dry run (useful with verbose)
   -o, --output <FILE.EXT>
@@ -79,13 +79,15 @@ Options:
           Scene description json input filename
   -f, --frame <FILE.json>
           Frame description json input filename
+      --full <FILE.json>
+          Full render description json input filename
       --res <w> <h>
           Frame output image resolution
       --ssaa <SSAA>
           Output image SSAAx antialiasing
       --cam <pos: <f32 f32 f32>> <dir: <f32 f32 f32 f32>> <fov: <f32>> <gamma: <f32>> <exp: <f32>>...
           Add camera to the scene
-      --obj [<<type: sphere(sph)|plane(pln)|box>> <param: <sphere: r: <f32>>|<plane: n: <f32 f32 f32>>|<box: size: <f32 f32 f32>>> <pos: <f32 f32 f32>> <dir: <f32 f32 f32 f32>> <albedo: <f32 f32 f32>|hex> <rough: <f32>> <metal: <f32>> <glass: <f32>> <opacity: <f32>> <emit: <f32>> <tex: <FILE.ext|<base64 str>>> <rmap: <FILE.ext|<base64 str>>> <mmap: <FILE.ext|<base64 str>>> <gmap: <FILE.ext|<base64 str>>> <omap: <FILE.ext|<base64 str>>> <emap: <FILE.ext|<base64 str>>>...]
+      --obj [<type: sphere(sph)|plane(pln)|box> <name: <str>> <param: <sphere: r: <f32>>|<plane: n: <f32 f32 f32>>|<box: size: <f32 f32 f32>>> <pos: <f32 f32 f32>> <dir: <f32 f32 f32 f32>> <albedo: <f32 f32 f32>|hex> <rough: <f32>> <metal: <f32>> <glass: <f32>> <opacity: <f32>> <emit: <f32>> <tex: <FILE.ext|<base64 str>>> <rmap: <FILE.ext|<base64 str>>> <mmap: <FILE.ext|<base64 str>>> <gmap: <FILE.ext|<base64 str>>> <omap: <FILE.ext|<base64 str>>> <emap: <FILE.ext|<base64 str>>>...]
           Add renderer to the scene
       --light [<param: <point(pt): <f32 f32 f32>>|<dir: <f32 f32 f32>>> <pwr: <f32>> <col: <f32 f32 f32>|hex>...]
           Add light source to the scene
@@ -262,17 +264,134 @@ raytrace --obj sph r: 0.2 pos: 0.5 0.5 0 albedo: '#ffc177' emit: 1.0 \
 }
 ```
 
-3. Finally, run following command (it will take some time):
+3. Also, render file `example.json` contains all information may be used:
+```json
+{
+    "rt": {
+        "bounce": 8,
+        "sample": 16,
+        "loss": 0.15
+    },
+    "frame": {
+        "res": [1280, 720],
+        "ssaa": 1,
+        "cam": {
+            "dir": [0, 0, 1, 0],
+            "exp": 0.75,
+            "fov": 60,
+            "gamma": 0.5,
+            "pos": [0, -1.2, 0.1]
+        }
+    },
+    "scene": {
+        "renderer": [
+            {
+                "type": "plane",
+                "n": [0, -1, 0],
+                "pos": [0, 1, 0],
+                "mat": {
+                    "rough": 1
+                }
+            },
+            {
+                "type": "plane",
+                "n": [1, 0, 0],
+                "pos": [-1, 0, 0],
+                "mat": {
+                    "albedo": "#ff0000",
+                    "rough": 1
+                }
+            },
+            {
+                "type": "plane",
+                "n": [-1, 0, 0],
+                "pos": [1, 0, 0],
+                "mat": {
+                    "albedo": "#00ff00",
+                    "rough": 1
+                }
+            },
+            {
+                "type": "plane",
+                "n": [0, 0, -1],
+                "pos": [0, 0, 1],
+                "mat": {
+                    "rough": 1
+                }
+            },
+            {
+                "type": "plane",
+                "n": [0, 0, 1],
+                "pos": [0, 0, -0.2],
+                "mat": {
+                    "rough": 1
+                }
+            },
+            {
+                "type": "sphere",
+                "r": 0.2,
+                "pos": [-0.15, -0.5, 0],
+                "mat": {
+                    "glass": 0.08,
+                    "opacity": 0
+                }
+            },
+            {
+                "type": "sphere",
+                "r": 0.2,
+                "pos": [0.5, 0, 0],
+                "mat": {
+                    "metal": 1
+                }
+            },
+            {
+                "type": "sphere",
+                "r": 0.2,
+                "pos": [0, 0.5, 0],
+                "mat": {
+                    "albedo": "#ff0000"
+                }
+            },
+            {
+                "type": "sphere",
+                "r": 0.2,
+                "pos": [-0.5, 0, 0],
+                "mat": {
+                    "rough": 1
+                }
+            },
+            {
+                "type": "sphere",
+                "r": 0.2,
+                "pos": [0.5, 0.5, 0],
+                "mat": {
+                    "albedo": "#ffc177",
+                    "emit": 1.0
+                }
+            }
+        ]
+    }    
+}
+```
+
+4. Finally, run following command (it will take some time):
 
 ```bash
 raytrace --scene scene.json --frame frame.json --sample 1024
 ```
 
+```bash
+raytrace --full example.json --sample 1024
+```
+
 ![image](doc/out2.png)
+
+In most cases single render description file is more prefered. Separation of scene and frame is useful to change some camera position, resolution etc. without updating full scene file.
+
 
 ### Terminal to json
 
-1. Also you can use `--verbose,-v` flag with `--dry,-d` to get full info in json from cli command:
+1. Also you can use `--verbose,-v` flag with `--dry,-d` to get full render info in json from cli command:
 ```bash
 raytrace -v -d --obj sphere --light point: -0.5 -1 0.5
 ```
