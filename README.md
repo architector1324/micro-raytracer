@@ -63,6 +63,8 @@ Options:
           Dry run (useful with verbose)
   -o, --output <FILE.EXT>
           Final image output filename
+      --http <address>
+          Launch http server
       --bounce <BOUNCE>
           Max ray bounce
       --sample <SAMPLE>

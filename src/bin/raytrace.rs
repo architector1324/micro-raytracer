@@ -1,7 +1,9 @@
 use std::collections::HashMap;
+use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
+use std::net::{TcpListener, TcpStream};
 
 use scoped_threadpool::Pool;
 
@@ -26,6 +28,9 @@ struct CLI {
 
     #[arg(short, long, next_line_help = true, help = "Final image output filename", value_name = "FILE.EXT")]
     output: Option<PathBuf>,
+
+    #[arg(long, next_line_help = true, help = "Launch http server", value_name = "address")]
+    http: Option<String>,
 
     #[arg(long, next_line_help = true, help="Max ray bounce")]
     bounce: Option<usize>,
@@ -284,10 +289,32 @@ impl CLI {
     }
 }
 
+fn http_handler(mut stream: TcpStream) -> Result<(), String> {
+    let mut buf = [0; 2048];
+
+    stream.read(&mut buf).map_err(|e| e.to_string())?;
+    println!("Request: {}", String::from_utf8_lossy(&buf));
+
+    let res = "HTTP/1.1 200 OK\r\n";
+    stream.write(res.as_bytes()).map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
 fn main_wrapped() -> Result<(), String> {
-    // parse render
     let cli = CLI::parse();
 
+    // launch http server
+    if let Some(addr) = &cli.http {
+        let l = TcpListener::bind(addr).map_err(|e| e.to_string())?;
+
+        for s in l.incoming() {
+            let stream = s.map_err(|e| e.to_string())?;
+            http_handler(stream)?;
+        }
+    }
+
+    // parse render
     let mut render = cli.parse_render()?;
 
     // verbose
