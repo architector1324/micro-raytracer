@@ -1,5 +1,8 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
+
+use scoped_threadpool::Pool;
 
 use clap::Parser;
 use serde_json::json;
@@ -36,7 +39,7 @@ struct CLI {
     update: bool,
 
     #[arg(short, long, next_line_help = true, help="Parallel workers count")]
-    worker: Option<usize>,
+    worker: Option<u32>,
 
     #[arg(long, next_line_help = true, help="Parallel jobs count on each dimension")]
     dim: Option<usize>,
@@ -82,6 +85,95 @@ trait ParseFromArgs<T: From<Vec<String>>> {
 
 impl ParseFromArgs<Renderer> for Scene {}
 impl ParseFromArgs<Light> for Scene {}
+
+struct Sampler {
+    n_dim: usize,
+    pool: Pool,
+    colors: HashMap<(usize, usize), Vec<(Vec3f, Duration)>>,
+}
+
+impl Sampler {
+    fn new(workers: u32, n_dim: usize) -> Sampler {
+        Sampler {
+            n_dim,
+            pool: Pool::new(workers),
+            colors: HashMap::new()
+        }
+    }
+
+    fn execute<'a>(&mut self, scene: &'a Scene, frame: &Frame, rt: &'a RayTracer) -> Duration {
+        let nw = (frame.res.0 as f32 * frame.ssaa) as usize;
+        let nh = (frame.res.1 as f32 * frame.ssaa) as usize;
+        
+        let g_w = (nw as f32 / self.n_dim as f32).ceil() as usize;
+        let g_h = (nh as f32 / self.n_dim as f32).ceil() as usize;
+        
+        let total_time = std::time::Instant::now();
+
+        let colors = Arc::new(Mutex::new(&mut self.colors));
+        
+        self.pool.scoped(|s| {
+            for g_x in 0usize..self.n_dim {
+                for g_y in 0usize..self.n_dim {
+                    let colors_c = Arc::clone(&colors);
+    
+                    s.execute(move || {
+                        let l_colors = (0..g_w).flat_map(
+                            |x| std::iter::repeat(x)
+                                .zip(0..g_h)
+                                .map(|(x, y)| ((x + g_w * g_x, y + g_h * g_y), std::time::Instant::now()))
+                                .map(|((x, y), time)| (
+                                    (x, y),
+                                    (
+                                        rt.reduce_light(scene, rt.iter(Vec2f{x: x as f32, y: y as f32}, &scene, &frame)),
+                                        time.elapsed()
+                                    )
+                                ))
+                                // .inspect(|((x, y), _, time)| println!("{} {}: {:?}", x, y, time.elapsed()))
+                        ).collect::<HashMap<_, (_, _)>>();
+
+                        let mut guard = colors_c.lock().unwrap();
+
+                        l_colors.into_iter().for_each(|((x, y), (col, dur))| {
+                            let entry = guard.get_mut(&(x, y));
+
+                            if let Some(old_v) = entry {
+                                old_v.push((col, dur));
+                            } else {
+                                guard.insert((x, y), vec![(col, dur)]);
+                            }
+                        });
+                    });
+                }
+            }
+        });
+
+        total_time.elapsed()
+    }
+
+    fn save(&self, filename: &std::path::PathBuf, frame: &Frame) {
+        let nw = (frame.res.0 as f32 * frame.ssaa) as usize;
+        let nh = (frame.res.1 as f32 * frame.ssaa) as usize;
+    
+        let img = image::ImageBuffer::from_fn(nw as u32, nh as u32, |x, y| {
+            let entry = self.colors.get(&(x as usize, y as usize)).unwrap();
+            let col = entry.iter().map(|(color, _)| color.clone()).sum::<Vec3f>() / entry.len() as f32;
+
+            // gamma correction
+            let gamma_col = col.into_iter().map(|v| (v).powf(frame.cam.gamma));
+
+            // tone mapping (Reinhard's)
+            let final_col = gamma_col.map(|v| v * (1.0 + v / ((1.0 - frame.cam.exp) as f32).powi(2)) / (1.0 + v));
+
+            // set pixel
+            image::Rgb(final_col.map(|v| (255.0 * v) as u8)
+                .collect::<Vec<_>>().as_slice().try_into().unwrap())
+        });
+
+        let out_img = image::imageops::resize(&img, frame.res.0 as u32, frame.res.1 as u32, image::imageops::FilterType::Lanczos3);
+        out_img.save(&filename).unwrap();
+    }
+}
 
 
 fn main() {
@@ -207,66 +299,21 @@ fn main() {
     }
 
     // raytrace
-    let nw = (frame.res.0 as f32 * frame.ssaa) as usize;
-    let nh = (frame.res.1 as f32 * frame.ssaa) as usize;
-
-    let workers = cli.worker.unwrap_or(24);
-    let pool = threadpool::ThreadPool::new(workers);
-
-    let scene_sync = Arc::new(scene);
-    let frame_sync = Arc::new(frame);
-    let rt_sync = Arc::new(rt);
-
-    let colors = Arc::new(Mutex::new(HashMap::new()));
-
-    let n_dim = cli.dim.unwrap_or(64);
-
-    let g_w = (nw as f32 / n_dim as f32).ceil() as usize;
-    let g_h = (nh as f32 / n_dim as f32).ceil() as usize;
-
-    for g_x in 0usize..n_dim {
-        for g_y in 0usize..n_dim {
-            let rt_syc_c = Arc::clone(&rt_sync);
-            let scene_syc_c = Arc::clone(&scene_sync);
-            let frame_sync_c = Arc::clone(&frame_sync);
-            let colors_c = Arc::clone(&colors);
-
-            pool.execute(move || {
-                let l_colors = (0..g_w).flat_map(
-                    |x| std::iter::repeat(x)
-                        .zip(0..g_h)
-                        .map(|(x, y)| (x + g_w * g_x, y + g_h * g_y))
-                        .map(|(x, y)| (
-                            (x, y),
-                            rt_syc_c.raytrace(&scene_syc_c, rt_syc_c.iter(Vec2f{x: x as f32, y: y as f32}, &scene_syc_c, &frame_sync_c))
-                        ))
-                ).collect::<Vec<_>>();
-
-                colors_c.lock().unwrap().extend(l_colors);
-            });
-        }
-    }
-    pool.join();
-
-    // save output
+    let mut sampler = Sampler::new(cli.worker.unwrap_or(24), cli.dim.unwrap_or(64));
     let filename = cli.output.unwrap_or(std::path::PathBuf::from("out.png"));
 
-    let img = image::ImageBuffer::from_fn(nw as u32, nh as u32, |x, y| {
-        let col = colors.lock().unwrap().get(&(x as usize, y as usize)).unwrap_or(&Vec3f::zero()).clone();
-    
-        // gamma correction
-        let gamma_col = col.into_iter().map(|v| (v).powf(frame_sync.cam.gamma));
-    
-        // tone mapping (Reinhard's)
-        let final_col = gamma_col.map(|v| v * (1.0 + v / ((1.0 - frame_sync.cam.exp) as f32).powi(2)) / (1.0 + v));
-    
-        // set pixel
-        image::Rgb(final_col.map(|v| (255.0 * v) as u8)
-            .collect::<Vec<_>>().as_slice().try_into().unwrap())
-    });
+    for _ in 0..rt.sample {
+        let time = sampler.execute(&scene, &frame, &rt);
 
-    let out_img = image::imageops::resize(&img, frame_sync.res.0 as u32, frame_sync.res.1 as u32, image::imageops::FilterType::Lanczos3);
-    out_img.save(filename).unwrap();
+        // println!("total {:?}", time);
+
+        if cli.update {
+            sampler.save(&filename, &frame);
+        }
+    }
+
+    // save output
+    sampler.save(&filename, &frame);
 
     // // test raytracer sampler
     // let mut img = image::ImageBuffer::new(512, 512);
