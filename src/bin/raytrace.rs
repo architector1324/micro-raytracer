@@ -183,6 +183,7 @@ impl Sampler {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+#[serde(default)]
 struct Render {
     rt: RayTracer,
     frame: Frame,
@@ -207,16 +208,6 @@ impl Default for Render {
 fn main() {
     // parse cli
     let cli = CLI::parse();
-
-    // let mut frame = Frame::default();
-    // let mut scene = Scene::default();
-    
-    // let rt = RayTracer{
-    //     bounce: cli.bounce.unwrap_or(8),
-    //     sample: cli.sample.unwrap_or(16),
-    //     loss: cli.loss.unwrap_or(0.15),
-    //     ..RayTracer::default()
-    // };
 
     let mut render = Render::default();
 

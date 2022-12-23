@@ -1,14 +1,11 @@
 {
     "rt": {
-        "bounce": 8,
-        "sample": 16,
-        "loss": 0.15
+        "sample": 512
     },
     "frame": {
         "res": [1080, 1080],
-        "ssaa": 1,
+        "ssaa": 2,
         "cam": {
-            "dir": [0, 0, 1, 0],
             "pos": [0, -1.25, 0],
             "exp": 0.8,
             "fov": 60,

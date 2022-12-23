@@ -13,6 +13,7 @@ use crate::lin::{Vec3f, Vec2f, Mat3f, Mat4f, ParseFromStrIter, Vec4f};
 const E: f32 = 0.0001;
 
 #[derive(Serialize, Deserialize, Debug)]
+#[serde(default)]
 pub struct RayTracer {
     pub bounce: usize,
     pub sample: usize,
@@ -46,6 +47,7 @@ pub struct RayHit<'a> {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+#[serde(default)]
 pub struct Camera {
     pub pos: Vec3f,
     pub dir: Vec4f,
@@ -55,6 +57,7 @@ pub struct Camera {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+#[serde(default)]
 pub struct Frame {
     pub res: (u16, u16),
     pub ssaa: f32,
@@ -141,6 +144,7 @@ pub enum LightKind {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(default)]
 pub struct Light {
     #[serde(flatten)]
     pub kind: LightKind,
@@ -149,17 +153,17 @@ pub struct Light {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+#[serde(default)]
 pub struct Sky {
     pub color: Color,
     pub pwr: f32
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+#[serde(default)]
 pub struct Scene {
     pub renderer: Option<Vec<Renderer>>,
     pub light: Option<Vec<Light>>,
-
-    #[serde(default)]
     pub sky: Sky
 }
 

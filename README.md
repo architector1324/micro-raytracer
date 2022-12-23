@@ -21,7 +21,7 @@ raytrace --obj sph r: 0.2 rough: 1 \
          --obj pln n: 0 -1 0 pos: 0 1 0 rough: 1 \
          --cam fov: 60 gamma: 1.0 exp: 0 \
          --bounce 16 --sample 512 \
-         --res 1920 1080 --ssaa 2
+         --update --res 1920 1080 --ssaa 2
 ```
 
 ![image](doc/out3.png)
@@ -36,7 +36,7 @@ raytrace --obj sph r: 0.15 pos: 0 0 -0.1 \
          --obj box size: 0.01 1 1 pos: -0.5 0 0 albedo: '#ff0000' \
          --obj box size: 0.01 1 1 pos: 0.5 0 0 albedo: '#00ff00' \
          --cam pos: 0 -1.25 0 fov: 60 gamma: 0.6 exp: 0.8 \
-         --sample 1024 --ssaa 2 --res 1080 1080
+         --update --sample 1024 --ssaa 2 --res 1080 1080
 ```
 
 ## Build
@@ -151,7 +151,7 @@ raytrace --obj sph r: 0.2 pos: 0.5 0.5 0 albedo: '#ffc177' emit: 1.0 \
          --obj pln n: 1 0 0 pos: -1 0 0 albedo: '#ff0000' rough: 1 \
          --obj pln n: 0 -1 0 pos: 0 1 0 rough: 1 \
          --cam pos: 0 -1.2 0.1 fov: 60 gamma: 0.5 exp: 0.75 \
-         --bounce 16 --sample 1024
+         --update --bounce 16 --sample 1024
 ```
 
 ![image](doc/out2.png)
@@ -268,15 +268,10 @@ raytrace --obj sph r: 0.2 pos: 0.5 0.5 0 albedo: '#ffc177' emit: 1.0 \
 ```json
 {
     "rt": {
-        "bounce": 8,
-        "sample": 16,
-        "loss": 0.15
+        "sample": 512
     },
     "frame": {
-        "res": [1280, 720],
-        "ssaa": 1,
         "cam": {
-            "dir": [0, 0, 1, 0],
             "exp": 0.75,
             "fov": 60,
             "gamma": 0.5,
