@@ -89,7 +89,8 @@ impl ParseFromArgs<Light> for Scene {}
 struct Sampler {
     n_dim: usize,
     pool: Pool,
-    colors: HashMap<(usize, usize), Vec<(Vec3f, Duration)>>,
+    colors: HashMap<(usize, usize), Vec3f>,
+    last_count: usize
 }
 
 impl Sampler {
@@ -97,7 +98,8 @@ impl Sampler {
         Sampler {
             n_dim,
             pool: Pool::new(workers),
-            colors: HashMap::new()
+            colors: HashMap::new(),
+            last_count: 0
         }
     }
 
@@ -129,18 +131,19 @@ impl Sampler {
                                         time.elapsed()
                                     )
                                 ))
-                                // .inspect(|((x, y), _, time)| println!("{} {}: {:?}", x, y, time.elapsed()))
-                        ).collect::<HashMap<_, (_, _)>>();
+                                // .inspect(|((x, y), (_, time))| println!("{} {}: {:?}", x, y, time))
+                                .map(|((x, y), (col, _))| ((x, y), col))
+                        ).collect::<HashMap<_, _>>();
 
                         let mut guard = colors_c.lock().unwrap();
 
-                        l_colors.into_iter().for_each(|((x, y), (col, dur))| {
+                        l_colors.into_iter().for_each(|((x, y), col)| {
                             let entry = guard.get_mut(&(x, y));
 
                             if let Some(old_v) = entry {
-                                old_v.push((col, dur));
+                                *old_v += col;
                             } else {
-                                guard.insert((x, y), vec![(col, dur)]);
+                                guard.insert((x, y), col);
                             }
                         });
                     });
@@ -148,6 +151,7 @@ impl Sampler {
             }
         });
 
+        self.last_count += 1;
         total_time.elapsed()
     }
 
@@ -156,8 +160,7 @@ impl Sampler {
         let nh = (frame.res.1 as f32 * frame.ssaa) as usize;
     
         let img = image::ImageBuffer::from_fn(nw as u32, nh as u32, |x, y| {
-            let entry = self.colors.get(&(x as usize, y as usize)).unwrap();
-            let col = entry.iter().map(|(color, _)| color.clone()).sum::<Vec3f>() / entry.len() as f32;
+            let col = self.colors.get(&(x as usize, y as usize)).unwrap().clone() / self.last_count as f32;
 
             // gamma correction
             let gamma_col = col.into_iter().map(|v| (v).powf(frame.cam.gamma));
