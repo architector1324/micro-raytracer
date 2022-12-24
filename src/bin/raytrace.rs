@@ -5,14 +5,14 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use std::net::{TcpListener, TcpStream};
 
+use image::{RgbImage, EncodableLayout};
 use scoped_threadpool::Pool;
 
 use clap::Parser;
 use serde::{Serialize, Deserialize};
-use serde_json::json;
 
 use micro_raytracer::lin::{Vec3f, Vec2f, ParseFromStrIter};
-use micro_raytracer::rt::{RayTracer, Scene, Frame, Camera, Light, Renderer, Color, FromArgs, Texture};
+use micro_raytracer::rt::{RayTracer, Scene, Frame, Camera, Light, Renderer, Color, FromArgs};
 
 
 #[derive(Parser)]
@@ -165,7 +165,7 @@ impl Sampler {
         total_time.elapsed()
     }
 
-    fn save(&self, filename: &PathBuf, frame: &Frame) -> Result<(), String> {
+    fn img(&self, frame: &Frame) -> Result<RgbImage, String> {
         let nw = (frame.res.0 as f32 * frame.ssaa) as usize;
         let nh = (frame.res.1 as f32 * frame.ssaa) as usize;
     
@@ -183,8 +183,7 @@ impl Sampler {
                 .collect::<Vec<_>>().as_slice().try_into().unwrap())
         });
 
-        let out_img = image::imageops::resize(&img, frame.res.0 as u32, frame.res.1 as u32, image::imageops::FilterType::Lanczos3);
-        out_img.save(&filename).map_err(|e| e.to_string())
+        Ok(image::imageops::resize(&img, frame.res.0 as u32, frame.res.1 as u32, image::imageops::FilterType::Lanczos3))
     }
 }
 
@@ -389,19 +388,16 @@ impl HttpServer {
         }
 
         let mut render = serde_json::from_str(&req.body).map_err(|e| e.to_string())?;
-        let tex = HttpServer::raytrace(&mut render)?;
+        let img = HttpServer::raytrace(&mut render)?;
 
-        let tex_json = json!({
-            "tex": tex
-        });
+        let mut img_jpg: Vec<u8> = Vec::new();
+        img.write_to(&mut std::io::Cursor::new(&mut img_jpg), image::ImageOutputFormat::Jpeg(90)).map_err(|e| e.to_string())?;
 
         // response
-        let json = serde_json::to_string(&tex_json).map_err(|e| e.to_string())?;
-
         let res = format!(
-            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{}\r\n",
-            json.as_bytes().len(),
-            json
+            "HTTP/1.1 200 OK\r\nContent-Type: image/jpeg\r\nContent-Length: {}\r\n\r\n{}\r\n",
+            img_jpg.as_bytes().len(),
+            unsafe {String::from_utf8_unchecked(img_jpg)}
         );
 
         s.write_all(res.as_bytes()).map_err(|e| e.to_string())?;
@@ -409,7 +405,7 @@ impl HttpServer {
         Ok(())
     }
 
-    fn raytrace(render: &mut Render) -> Result<Texture, String> {
+    fn raytrace(render: &mut Render) -> Result<RgbImage, String> {
         // unwrap textures
         render.scene.sky.color.to_vec3()?;
 
@@ -454,13 +450,8 @@ impl HttpServer {
             // println!("total {:?}", time);
         }
 
-        // convert to texture
-        sampler.save(&PathBuf::from("tmp.png"), &render.frame)?;
-
-        let mut tex = Texture::load("tmp.png")?;
-        tex.to_inline()?;
-
-        Ok(tex)
+        // convert to image
+        sampler.img(&render.frame)
     }
 
     fn start(&self) -> Result<(), String> {
@@ -546,12 +537,15 @@ fn main_wrapped() -> Result<(), String> {
         // println!("total {:?}", time);
 
         if cli.update {
-            sampler.save(&filename, &render.frame)?;
+            let img = sampler.img(&render.frame)?;
+            img.save(&filename).map_err(|e| e.to_string())?;
         }
     }
 
     // save output
-    sampler.save(&filename, &render.frame)?;
+    let img = sampler.img(&render.frame)?;
+    img.save(&filename).map_err(|e| e.to_string())?;
+
     Ok(())
 }
 
