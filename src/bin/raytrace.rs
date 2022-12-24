@@ -340,9 +340,10 @@ impl HttpServer {
     fn handle(mut s: TcpStream) -> Result<(), String> {
         // request
         let mut buf = [0; 10 * 1024];
-        s.read(&mut buf).map_err(|e| e.to_string())?;
+        s.read(&mut buf[..]).map_err(|e| e.to_string())?;
 
-        let req = HttpRequest::parse(&String::from_utf8(Vec::from(buf)).map_err(|e| e.to_string())?)?;
+        let req_s = String::from_utf8(Vec::from(buf)).map_err(|e| e.to_string())?;
+        let req = HttpRequest::parse(&req_s)?;
 
         // validate
         if req.version != "HTTP/1.1" {
@@ -366,7 +367,9 @@ impl HttpServer {
             return Ok(());
         }
 
-        if req.headers.get("Content-Type").unwrap() != "application/json" {
+        if !req.headers.get("Content-Type").unwrap().starts_with("application/json") {
+            println!("{}", req.headers.get("Content-Type").unwrap());
+
             let res =  "HTTP/1.1 415 Unsupported Media Type\r\n";
             s.write_all(res.as_bytes()).map_err(|e| e.to_string())?;
 
@@ -455,12 +458,12 @@ impl HttpServer {
     }
 
     fn start(&self) -> Result<(), String> {
-        loop {
-            for s in self.hlr.incoming() {
-                let stream = s.map_err(|e| e.to_string())?;
-                HttpServer::handle(stream)?;
-            }
+        for s in self.hlr.incoming() {
+            let stream = s.map_err(|e| e.to_string())?;
+            HttpServer::handle(stream)?;
         }
+
+        Ok(())
     }
 }
 
