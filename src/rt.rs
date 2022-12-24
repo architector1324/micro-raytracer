@@ -422,7 +422,7 @@ impl FromArgs for Renderer {
                 "opacity:" => obj.mat.opacity = <f32>::parse(&mut it)?,
                 "emit:" => obj.mat.emit = <f32>::parse(&mut it)?,
                 "tex:" => {
-                    let s = String::from(it.next().ok_or(String::from("unexpected ended!"))?);
+                    let s = it.next().ok_or("unexpected ended!".to_string())?.to_string();
 
                     obj.mat.tex = if s.contains(".") {
                         Some(Texture::File(PathBuf::from(s)))
@@ -431,7 +431,7 @@ impl FromArgs for Renderer {
                     }
                 },
                 "rmap:" => {
-                    let s = String::from(it.next().ok_or(String::from("unexpected ended!"))?);
+                    let s = it.next().ok_or("unexpected ended!".to_string())?.to_string();
 
                     obj.mat.rmap = if s.contains(".") {
                         Some(Texture::File(PathBuf::from(s)))
@@ -440,7 +440,7 @@ impl FromArgs for Renderer {
                     }
                 },
                 "mmap:" => {
-                    let s = String::from(it.next().ok_or(String::from("unexpected ended!"))?);
+                    let s = it.next().ok_or("unexpected ended!".to_string())?.to_string();
 
                     obj.mat.mmap = if s.contains(".") {
                         Some(Texture::File(PathBuf::from(s)))
@@ -449,7 +449,7 @@ impl FromArgs for Renderer {
                     }
                 },
                 "gmap:" => {
-                    let s = String::from(it.next().ok_or(String::from("unexpected ended!"))?);
+                    let s = it.next().ok_or("unexpected ended!".to_string())?.to_string();
 
                     obj.mat.gmap = if s.contains(".") {
                         Some(Texture::File(PathBuf::from(s)))
@@ -458,7 +458,7 @@ impl FromArgs for Renderer {
                     }
                 },
                 "omap:" => {
-                    let s = String::from(it.next().ok_or(String::from("unexpected ended!"))?);
+                    let s = it.next().ok_or("unexpected ended!".to_string())?.to_string();
 
                     obj.mat.omap = if s.contains(".") {
                         Some(Texture::File(PathBuf::from(s)))
@@ -467,7 +467,7 @@ impl FromArgs for Renderer {
                     }
                 },
                 "emap:" => {
-                    let s = String::from(it.next().ok_or(String::from("unexpected ended!"))?);
+                    let s = it.next().ok_or("unexpected ended!".to_string())?.to_string();
 
                     obj.mat.emap = if s.contains(".") {
                         Some(Texture::File(PathBuf::from(s)))
@@ -588,7 +588,7 @@ impl Color {
 impl Texture {
     pub fn load(name: &str) -> Result<Texture, String> {
         let mut tmp = image::open(name).map_err(|e| e.to_string())?;
-        let img = tmp.as_mut_rgb8().ok_or(String::from("is not rgb888 image!"))?;
+        let img = tmp.as_mut_rgb8().ok_or("is not rgb888 image!".to_string())?;
         let size = img.dimensions();
 
         let out = img.pixels().map(|px| Vec3f::from(px.0.map(|v| v as f32 / 255.0))).collect();
@@ -612,7 +612,7 @@ impl Texture {
 
     pub fn to_buffer(&mut self) -> Result<(), String> {
         match self {
-            Texture::File(name) => *self = Texture::load(name.as_os_str().to_str().ok_or(String::from("cannot convert to string!"))?)?,
+            Texture::File(name) => *self = Texture::load(name.as_os_str().to_str().ok_or("cannot convert to string!".to_string())?)?,
             Texture::InlineBase64(s) => {
                 if s.contains(".") {
                     *self = Texture::load(s)?;

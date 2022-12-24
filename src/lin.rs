@@ -444,7 +444,7 @@ pub trait ParseFromStrIter<'a>: Sized {
 
 impl <'a> ParseFromStrIter<'a> for f32 {
     fn parse<I: Iterator<Item = &'a String>>(it: &mut I) -> Result<Self, String> {
-        it.next().ok_or("unexpected ends!")?.parse::<f32>().map_err(|_| String::from("should be <f32>!"))
+        it.next().ok_or("unexpected ends!")?.parse::<f32>().map_err(|_| "should be <f32>!".to_string())
     }
 }
 
