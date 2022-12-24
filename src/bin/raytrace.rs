@@ -339,7 +339,7 @@ impl HttpRequest {
 impl HttpServer {
     fn handle(mut s: TcpStream) -> Result<(), String> {
         // request
-        let mut buf = [0; 10 * 1024];
+        let mut buf = [0; 1024 * 1024]; // 1mb
         s.read(&mut buf[..]).map_err(|e| e.to_string())?;
 
         let req_s = String::from_utf8(Vec::from(buf)).map_err(|e| e.to_string())?;
