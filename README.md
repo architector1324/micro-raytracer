@@ -64,7 +64,11 @@ cargo build --release --target x86_64-unknown-linux-musl
 $ ./raytrace -h 
 Tiny raytracing microservice.
 
-Usage: raytrace [OPTIONS]
+Usage: raytrace [OPTIONS] [FILE.json]
+
+Arguments:
+  [FILE.json]
+          Full render description json input filename
 
 Options:
   -v, --verbose
@@ -93,8 +97,6 @@ Options:
           Scene description json input filename
   -f, --frame <FILE.json>
           Frame description json input filename
-      --full <FILE.json>
-          Full render description json input filename
       --res <w> <h>
           Frame output image resolution
       --ssaa <SSAA>
@@ -390,7 +392,7 @@ raytrace --scene scene.json --frame frame.json --sample 1024
 ```
 
 ```bash
-raytrace --full example.json --sample 1024
+raytrace example.json --sample 1024
 ```
 
 ![image](doc/out2.png)

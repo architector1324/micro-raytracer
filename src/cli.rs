@@ -11,6 +11,9 @@ use crate::sampler::Sampler;
 #[derive(Parser)]
 #[command(author, version, about = "Tiny raytracing microservice.", long_about = None)]
 pub struct CLI {
+    #[arg(next_line_help = true, help = "Full render description json input filename", value_name = "FILE.json")]
+    pub full: Option<PathBuf>,
+
     #[arg(short, long, action, next_line_help = true, help = "Enable logging")]
     pub verbose: bool,
 
@@ -49,9 +52,6 @@ pub struct CLI {
 
     #[arg(short, long, next_line_help = true, help = "Frame description json input filename", value_name = "FILE.json")]
     pub frame: Option<PathBuf>,
-
-    #[arg(long, next_line_help = true, help = "Full render description json input filename", value_name = "FILE.json")]
-    pub full: Option<PathBuf>,
 
     #[arg(long, value_names = ["w", "h"], next_line_help = true, help = "Frame output image resolution")]
     pub res: Option<Vec<u16>>,

@@ -42,7 +42,9 @@ fn main_wrapped() -> Result<(), String> {
         return Ok(());
     }
 
-    info!("cli:done: {:?}", cli.raytrace(&mut render)?);
+    let time = cli.raytrace(&mut render)?;
+
+    info!("cli:done: {:?}", time);
 
     Ok(())
 }
