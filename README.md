@@ -8,24 +8,8 @@ The main idea is to easy render images instantly in terminal, with [json](https:
 
 Inspired by [Zenity](https://github.com/GNOME/zenity), that provides you to create simple UI in terminal.
 
-![image](doc/intro.jpg)
+![image](doc/out4.png)
 
-
-```bash
-raytrace --obj sph r: 0.2 rough: 1 \
-         --obj sph r: 0.1 pos: -0.4 0 -0.1 glass: 0.1 opacity: 0 \
-         --obj sph r: 0.4 pos: 0.5 0.5 0.2 albedo: 0 0 1 rough: 0.01 \
-         --obj sph r: 0.3 pos: -0.5 0.5 0.1 metal: 1 \
-         --obj sph r: 0.08 pos: 0.3 0.18 -0.12 emit: 1.0 \
-         --obj pln pos: 0 0 -0.2 rough: 0.5 metal: 1 \
-         --obj pln n: 0 0 -1 pos: 0 0 1 emit: 1.0 \
-         --obj pln n: -1 0 0 pos: 1 0 0 albedo: 0 1 0 rough: 1 \
-         --obj pln n: 1 0 0 pos: -1 0 0 albedo: 1 0 0 rough: 1 \
-         --obj pln n: 0 -1 0 pos: 0 1 0 rough: 1 \
-         --cam fov: 60 gamma: 1.0 exp: 0 \
-         --bounce 16 --sample 512 \
-         --update --res 1920 1080 --ssaa 2
-```
 
 ![image](doc/out3.png)
 
