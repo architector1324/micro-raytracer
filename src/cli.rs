@@ -1,5 +1,7 @@
 use std::path::PathBuf;
+use std::time::{Duration, Instant};
 use clap::Parser;
+use log::info;
 
 use crate::cli_parser::{ParseFromStrIter, ParseFromArgs, FromArgs};
 use crate::rt::{Render, Scene, Camera, Color};
@@ -150,7 +152,7 @@ impl CLI {
         Ok(render)
     }
 
-    pub fn raytrace(&self, render: &mut Render) -> Result<(), String> {
+    pub fn raytrace(&self, render: &mut Render) -> Result<Duration, String> {
         // unwrap textures
         render.scene.sky.color.to_vec3()?;
 
@@ -189,11 +191,11 @@ impl CLI {
         let mut sampler = Sampler::new(self.worker.unwrap_or(24), self.dim.unwrap_or(64));
         let filename = self.output.clone().unwrap_or(PathBuf::from("out.png"));
 
-        for _ in 0..render.rt.sample {
-            sampler.execute(&render.scene, &render.frame, &render.rt);
+        let time = Instant::now();
 
-            // let time = sampler.execute(&render.scene, &render.frame, &render.rt);
-            // println!("total {:?}", time);
+        for sample in 0..render.rt.sample {
+            let time = sampler.execute(&render.scene, &render.frame, &render.rt);
+            info!("cli:sample:{}: {:?}", sample, time);
 
             if self.update {
                 let img = sampler.img(&render.frame)?;
@@ -205,6 +207,6 @@ impl CLI {
         let img = sampler.img(&render.frame)?;
         img.save(&filename).map_err(|e| e.to_string())?;
 
-        Ok(())
+        Ok(time.elapsed())
     }
 }

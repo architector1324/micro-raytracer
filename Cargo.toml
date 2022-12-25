@@ -23,3 +23,5 @@ clap = {version="4.0.29", features = ["derive"]}
 scoped_threadpool = "0.1.9"
 base64 = "0.20.0"
 flate2 = "1.0.25"
+log = "0.4"
+simplelog = "0.12.0"

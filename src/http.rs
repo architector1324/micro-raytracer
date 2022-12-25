@@ -1,8 +1,10 @@
 use std::collections::HashMap;
 use std::io::{Write, Read};
-use std::net::{TcpListener, TcpStream};
+use std::net::{TcpListener, TcpStream, SocketAddr};
+use std::time::{Duration, Instant};
 
 use image::{RgbImage, EncodableLayout};
+use log::{info, error};
 
 use crate::rt::Render;
 use crate::sampler::Sampler;
@@ -57,6 +59,8 @@ impl HttpRequest {
 
 impl HttpServer {
     pub fn handle(mut s: TcpStream) -> Result<(), String> {
+        let addr = s.peer_addr().map_err(|e| e.to_string())?;
+
         // request
         let mut buf = [0; 1024 * 1024]; // 1mb
         s.read(&mut buf[..]).map_err(|e| e.to_string())?;
@@ -87,8 +91,6 @@ impl HttpServer {
         }
 
         if !req.headers.get("Content-Type").unwrap().starts_with("application/json") {
-            println!("{}", req.headers.get("Content-Type").unwrap());
-
             let res =  "HTTP/1.1 415 Unsupported Media Type\r\n";
             s.write_all(res.as_bytes()).map_err(|e| e.to_string())?;
 
@@ -110,7 +112,10 @@ impl HttpServer {
         }
 
         let mut render = serde_json::from_str(&req.body).map_err(|e| e.to_string())?;
-        let img = HttpServer::raytrace(&mut render)?;
+        info!("http:render[{}]: {}", addr, serde_json::to_string(&render).map_err(|e| e.to_string())?);
+
+        let (img, time) = HttpServer::raytrace(addr, &mut render)?;
+        info!("http:done[{}]: {:?}", addr, time);
 
         let mut img_jpg: Vec<u8> = Vec::new();
         img.write_to(&mut std::io::Cursor::new(&mut img_jpg), image::ImageOutputFormat::Jpeg(90)).map_err(|e| e.to_string())?;
@@ -127,7 +132,7 @@ impl HttpServer {
         Ok(())
     }
 
-    pub fn raytrace(render: &mut Render) -> Result<RgbImage, String> {
+    pub fn raytrace(addr: SocketAddr, render: &mut Render) -> Result<(RgbImage, Duration), String> {
         // unwrap textures
         render.scene.sky.color.to_vec3()?;
 
@@ -164,23 +169,27 @@ impl HttpServer {
 
         // raytrace
         let mut sampler = Sampler::new(24, 64);
+        let time = Instant::now();
 
-        for _ in 0..render.rt.sample {
-            sampler.execute(&render.scene, &render.frame, &render.rt);
-
-            // let time = sampler.execute(&render.scene, &render.frame, &render.rt);
-            // println!("total {:?}", time);
+        for sample in 0..render.rt.sample {
+            let time = sampler.execute(&render.scene, &render.frame, &render.rt);
+            info!("http:sample[{}]:{}: {:?}", addr, sample, time);
         }
 
         // convert to image
-        sampler.img(&render.frame)
+        Ok((sampler.img(&render.frame)?, time.elapsed()))
     }
 
     pub fn start(&self) -> Result<(), String> {
         for s in self.hlr.incoming() {
             let stream = s.map_err(|e| e.to_string())?;
+            info!("http:connected: {}", stream.peer_addr().map_err(|e| e.to_string())?);
 
-            std::thread::spawn(|| HttpServer::handle(stream).unwrap());
+            std::thread::spawn(|| {
+                if let Err(e) = HttpServer::handle(stream) {
+                    error!("http: {}", e.to_string());
+                }
+            });
         }
 
         Ok(())
