@@ -1,0 +1,59 @@
+{
+    "rt": {
+        "sample": 256
+    },
+    "frame": {
+        "cam": {
+            "aprt": 0.008,
+            "foc": 0.525,
+            "fov": 60,
+            "pos": [0, -1, 0.25],
+            "dir": [0, 0, 1, -0.25]
+        }
+    },
+    "scene": {
+        "renderer": [
+            {
+                "type": "sphere",
+                "r": 0.3,
+                "mat": {
+                    "albedo": "#ee8c57"
+                }
+            },
+            {
+                "type": "sphere",
+                "r": 0.3,
+                "pos": [-1.125, 1.25, 0],
+                "mat": {
+                    "metal": 1
+                }
+            },
+            {
+                "type": "box",
+                "sizes": [0.6, 0.6 ,0.6],
+                "pos": [1.125, 1.25, 0],
+                "mat": {
+                    "rough": 1,
+                    "albedo": "#f7a3d7"
+                }
+            },
+            {
+                "type": "plane",
+                "n": [0, 0, 1],
+                "pos": [0, 0, -0.3],
+                "mat": {
+                    "rough": 1,
+                    "tex": "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"
+                }
+            }
+        ],
+        "light": [
+            {
+                "type": "point",
+                "pos": [-0.5, -1, 0.5],
+                "pwr": 0.5,
+                "color": "#ffffff"
+            }
+        ]
+    }
+}

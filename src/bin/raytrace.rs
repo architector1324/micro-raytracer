@@ -14,7 +14,7 @@ fn main_wrapped() -> Result<(), String> {
     let cli = CLI::parse();
 
     if !cli.verbose {
-        log::set_max_level(LevelFilter::Off);
+        log::set_max_level(LevelFilter::Error);
     }
 
     // launch http server

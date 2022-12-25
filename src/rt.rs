@@ -613,10 +613,18 @@ impl Renderer {
                 let rot_y = Mat3f::rotate_y(self.dir);
                 let look = Mat4f::lookat(self.dir, Vec3f::up());
                 let v = rot_y * (look * hit);
-                Vec2f {
-                    x: (v.x + 0.5).fract().abs(),
-                    y: (v.y + 0.5).fract().abs()
+
+                let mut x = (v.x + 0.5).fract();
+                if x < 0.0 {
+                    x = 1.0 + x;
                 }
+
+                let mut y = (v.y + 0.5).fract();
+                if y < 0.0 {
+                    y = 1.0 + y;
+                }
+
+                Vec2f{x, y}
             },
             RendererKind::Box {sizes} => {
                 let rot_y = Mat3f::rotate_y(self.dir);
