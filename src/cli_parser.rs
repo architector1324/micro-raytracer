@@ -73,6 +73,8 @@ impl FromArgs for Camera {
                 "fov:" => cam.fov = <f32>::parse(&mut it)?,
                 "gamma:" => cam.gamma = <f32>::parse(&mut it)?,
                 "exp:" => cam.exp = <f32>::parse(&mut it)?,
+                "aprt:" => cam.aprt = <f32>::parse(&mut it)?,
+                "foc:" => cam.foc = <f32>::parse(&mut it)?,
                 _ => return Err(format!("`{}` param for `cam` is unxpected!", param))
             }
         }

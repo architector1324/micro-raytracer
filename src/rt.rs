@@ -61,7 +61,9 @@ pub struct Camera {
     pub dir: Vec4f,
     pub fov: f32,
     pub gamma: f32,
-    pub exp: f32
+    pub exp: f32,
+    pub aprt: f32,
+    pub foc: f32
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -222,7 +224,9 @@ impl Default for Camera {
             dir: Vec4f::forward(),
             fov: 70.0,
             gamma: 0.8,
-            exp: 0.2
+            exp: 0.2,
+            aprt: 0.001,
+            foc: 100.0
         }
     }
 }
@@ -744,7 +748,7 @@ impl RayTracer {
         })
     }
 
-    fn cast(uv: Vec2f, frame: &Frame) -> Ray {
+    fn cast(&self, uv: Vec2f, frame: &Frame) -> Ray {
         // get direction
         let tan_fov = (0.5 * frame.cam.fov).to_radians().tan();
 
@@ -754,12 +758,27 @@ impl RayTracer {
             z: -uv.y
         }.norm();
 
+        // dof
+        let mut ray = Ray::cast_default(frame.cam.pos, dir);
+        ray.t = frame.cam.foc;
+
+        let p = Vec3f::from(&ray);
+
+        let pos = Vec3f {
+            x: frame.cam.pos.x + (rand::thread_rng().sample(self.sampler) - 0.5) * frame.cam.aprt,
+            y: frame.cam.pos.y,
+            z: frame.cam.pos.z + (rand::thread_rng().sample(self.sampler) - 0.5) * frame.cam.aprt
+        };
+
+        let new_dir = (p - pos).norm();
+
+        // rotation
         let cam_dir = frame.cam.dir;
         let look = Mat4f::lookat(cam_dir, Vec3f::up());
         let rot_y = Mat3f::rotate_y(cam_dir);
 
         // cast
-        Ray::cast_default(frame.cam.pos, rot_y * (look * dir))
+        Ray::cast_default(pos, rot_y * (look * new_dir))
     }
 
     pub fn raytrace<'a, I>(&self, scene: &'a Scene, it: I) -> Vec3f where I: Iterator<Item = (RayHit<'a>, Option<Vec<&'a Light>>)> + Clone {
@@ -776,7 +795,7 @@ impl RayTracer {
             y: (coord.y - 0.5 * h) / h
         };
 
-        let ray = RayTracer::cast(uv, frame);
+        let ray = RayTracer::cast(self, uv, frame);
 
         RaytraceIterator {
             rt: self,
