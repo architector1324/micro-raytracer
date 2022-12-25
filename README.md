@@ -1,12 +1,15 @@
 # Micro-RT
 
+![Rust](https://img.shields.io/badge/rust-%23000000.svg?style=for-the-badge&logo=rust&logoColor=white)
+
 Lightweight raytracing microservice written in [Rust](https://www.rust-lang.org/).
 
-The main idea is to use flags or [json](https://www.json.org/json-en.html) for generating images in terminal, shell scripts, http servers and etc.
+The main idea is to easy render images instantly in terminal, with [json](https://www.json.org/json-en.html) file or over [http](https://en.wikipedia.org/wiki/Hypertext_Transfer_Protocol) server.
 
-It's something like [Zenity](https://github.com/GNOME/zenity), that provides you to create simple UI in terminal.
+Inspired by [Zenity](https://github.com/GNOME/zenity), that provides you to create simple UI in terminal.
 
 ![image](doc/intro.jpg)
+
 
 ```bash
 raytrace --obj sph r: 0.2 rough: 1 \
@@ -39,6 +42,15 @@ raytrace --obj sph r: 0.15 pos: 0 0 -0.1 \
          --update --sample 1024 --ssaa 2 --res 1080 1080
 ```
 
+## Table of Contents
+- [Build](#build)
+- [Usage](#usage)
+    - [In-place in terminal](#in-place-in-terminal)
+    - [JSON render description](#json-render-description)
+    - [HTTP server](#http-server)
+    - [Terminal to json](#terminal-to-json)
+- [API](#api)
+
 ## Build
 Build statically for [linux](https://en.wikipedia.org/wiki/Linux) using [musl](https://musl.libc.org/). This executable may run on any linux system without any additional libs.
 
@@ -56,7 +68,7 @@ Usage: raytrace [OPTIONS]
 
 Options:
   -v, --verbose
-          Print full render info in json
+          Enable logging
       --pretty
           Print full render info in json with prettifier
   -d, --dry
@@ -158,7 +170,7 @@ raytrace --obj sph r: 0.2 pos: 0.5 0.5 0 albedo: '#ffc177' emit: 1.0 \
 
 ![image](doc/out2.png)
 
-### JSON frame and scene description
+### JSON render description
 1. First create `scene.json` file contains scene information:
 ```json
 {
@@ -385,6 +397,16 @@ raytrace --full example.json --sample 1024
 
 In most cases single render description file is more prefered. Separation of scene and frame is useful to change some camera position, resolution etc. without updating full scene file.
 
+### HTTP server
+1. Run the http server with the following command:
+```bash
+raytrace --http localhost:8888
+```
+
+2. Send a `POST` http request with render description in json body:
+![image](doc/http.png)
+
+It will return an http response with JPEG encoded output.
 
 ### Terminal to json
 

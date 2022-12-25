@@ -11,7 +11,7 @@ use crate::sampler::Sampler;
 #[derive(Parser)]
 #[command(author, version, about = "Tiny raytracing microservice.", long_about = None)]
 pub struct CLI {
-    #[arg(short, long, action, next_line_help = true, help = "Print full render info in json")]
+    #[arg(short, long, action, next_line_help = true, help = "Enable logging")]
     pub verbose: bool,
 
     #[arg(long, action, next_line_help = true, help = "Print full render info in json with prettifier")]
