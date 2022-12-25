@@ -460,7 +460,8 @@ impl HttpServer {
     fn start(&self) -> Result<(), String> {
         for s in self.hlr.incoming() {
             let stream = s.map_err(|e| e.to_string())?;
-            HttpServer::handle(stream)?;
+
+            std::thread::spawn(|| HttpServer::handle(stream).unwrap());
         }
 
         Ok(())
