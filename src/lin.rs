@@ -438,46 +438,6 @@ impl From<[f32; 4]> for Vec4f {
     }
 }
 
-pub trait ParseFromStrIter<'a>: Sized {
-    fn parse<I: Iterator<Item = &'a String> + Clone>(it: &mut I) -> Result<Self, String>;
-}
-
-impl <'a> ParseFromStrIter<'a> for f32 {
-    fn parse<I: Iterator<Item = &'a String>>(it: &mut I) -> Result<Self, String> {
-        it.next().ok_or("unexpected ends!")?.parse::<f32>().map_err(|_| "should be <f32>!".to_string())
-    }
-}
-
-impl <'a> ParseFromStrIter<'a> for Vec3f {
-    fn parse<I: Iterator<Item = &'a String> + Clone>(it: &mut I) -> Result<Self, String> {
-        Ok(Vec3f {
-            x: <f32>::parse(it)?,
-            y: <f32>::parse(it)?,
-            z: <f32>::parse(it)?
-        })
-    }
-}
-
-impl <'a> ParseFromStrIter<'a> for Vec4f {
-    fn parse<I: Iterator<Item = &'a String> + Clone>(it: &mut I) -> Result<Self, String> {
-        Ok(Vec4f {
-            w: <f32>::parse(it)?,
-            x: <f32>::parse(it)?,
-            y: <f32>::parse(it)?,
-            z: <f32>::parse(it)?
-        })
-    }
-}
-
-impl IntoIterator for Vec3f {
-    type Item = f32;
-    type IntoIter = std::array::IntoIter<f32, 3>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        <[f32; 3]>::from(self).into_iter()
-    }
-}
-
 impl std::iter::Sum<Vec3f> for Vec3f {
     fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
         iter.fold(Vec3f::zero(), |acc, v| acc + v)
