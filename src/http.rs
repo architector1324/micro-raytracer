@@ -6,6 +6,7 @@ use std::time::{Duration, Instant};
 use image::{RgbImage, EncodableLayout};
 use log::{info, error};
 
+use crate::parser::{RenderWrapper, Wrapper};
 use crate::rt::Render;
 use crate::sampler::Sampler;
 
@@ -111,10 +112,10 @@ impl HttpServer {
             return Ok(());
         }
 
-        let mut render = serde_json::from_str(&req.body).map_err(|e| e.to_string())?;
+        let render: RenderWrapper = serde_json::from_str(&req.body).map_err(|e| e.to_string())?;
         info!("http:render[{}]: {}", addr, serde_json::to_string(&render).map_err(|e| e.to_string())?);
 
-        let (img, time) = HttpServer::raytrace(addr, &mut render)?;
+        let (img, time) = HttpServer::raytrace(addr, &mut render.unwrap()?)?;
         info!("http:done[{}]: {:?}", addr, time);
 
         let mut img_jpg: Vec<u8> = Vec::new();
@@ -133,40 +134,6 @@ impl HttpServer {
     }
 
     pub fn raytrace(addr: SocketAddr, render: &mut Render) -> Result<(RgbImage, Duration), String> {
-        // unwrap textures
-        render.scene.sky.color.to_vec3()?;
-
-        if let Some(ref mut lights) = render.scene.light {
-            for light in lights {
-                light.color.to_vec3()?
-            }
-        }
-
-        if let Some(ref mut objs) = render.scene.renderer {
-            for obj in objs {
-                obj.mat.albedo.to_vec3()?;
-
-                if let Some(tex) = &mut obj.mat.tex {
-                    tex.to_buffer()?;
-                }
-                if let Some(rmap) = &mut obj.mat.rmap {
-                    rmap.to_buffer()?;
-                }
-                if let Some(mmap) = &mut obj.mat.mmap {
-                    mmap.to_buffer()?;
-                }
-                if let Some(gmap) = &mut obj.mat.gmap {
-                    gmap.to_buffer()?;
-                }
-                if let Some(omap) = &mut obj.mat.omap {
-                    omap.to_buffer()?;
-                }
-                if let Some(emap) = &mut obj.mat.emap {
-                    emap.to_buffer()?;
-                }
-            }
-        }
-
         // raytrace
         let mut sampler = Sampler::new(24, 64);
         let time = Instant::now();

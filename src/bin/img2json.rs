@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use clap::Parser;
 use serde_json::json;
 
-use micro_raytracer::rt::Texture;
+use micro_raytracer::parser::TextureWrapper;
 
 
 #[derive(Parser)]
@@ -22,16 +22,16 @@ struct CLI {
 fn main() {
     let cli = CLI::parse();
 
-    let mut tex = Texture::File(PathBuf::from(cli.img));
+    let mut tex = TextureWrapper::File(PathBuf::from(cli.img));
 
     if let Some(fmt) = cli.fmt {
         match fmt.as_str() {
-            "buf" => tex.to_buffer().unwrap(),
-            "inl" => tex.to_inline().unwrap(),
+            "buf" => tex = tex.to_buffer().unwrap(),
+            "inl" => tex = tex.to_inline().unwrap(),
             _ => panic!("unknown texture format {}!", fmt.as_str())
         }
     } else {
-        tex.to_buffer().unwrap();
+        tex = tex.to_buffer().unwrap();
     }
 
     let tex_json = json!({

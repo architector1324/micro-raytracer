@@ -1,33 +1,23 @@
 use rand::Rng;
-use std::path::PathBuf;
 use std::f32::consts::PI;
-use image::EncodableLayout;
-use flate2::read::GzDecoder;
-use flate2::write::GzEncoder;
 use rand::distributions::Uniform;
-use std::io::prelude::{Read, Write};
-use serde::{Serialize, Deserialize};
 
 use crate::lin::{Vec3f, Vec2f, Mat3f, Mat4f, Vec4f};
 
 const E: f32 = 0.0001;
 
-#[derive(Serialize, Deserialize, Debug)]
-#[serde(default)]
+#[derive(Debug)]
 pub struct Render {
     pub rt: RayTracer,
     pub frame: Frame,
     pub scene: Scene
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-#[serde(default)]
+#[derive(Debug, Clone)]
 pub struct RayTracer {
     pub bounce: usize,
     pub sample: usize,
     pub loss: f32,
-
-    #[serde(skip, default = "RayTracer::default_sampler")]
     pub sampler: Uniform<f32>,
 }
 
@@ -47,15 +37,14 @@ pub struct Ray {
     pub bounce: usize
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct RayHit<'a> {
     pub obj: &'a Renderer,
     pub ray: (Ray, Ray),
     pub norm: (Vec3f, Vec3f)
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(default)]
+#[derive(Debug)]
 pub struct Camera {
     pub pos: Vec3f,
     pub dir: Vec4f,
@@ -66,41 +55,23 @@ pub struct Camera {
     pub foc: f32
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-#[serde(default)]
+#[derive(Debug)]
 pub struct Frame {
     pub res: (u16, u16),
     pub ssaa: f32,
     pub cam: Camera
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(untagged)]
-pub enum Color {
-    Vec3(Vec3f),
-    Hex(String)
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(default)]
-pub struct BufferF32 {
+#[derive(Debug)]
+pub struct Texture {
     pub w: usize,
     pub h: usize,
     pub dat: Option<Vec<Vec3f>>
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(untagged)]
-pub enum Texture {
-    Buffer(BufferF32),
-    InlineBase64(String),
-    File(PathBuf),
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(default)]
+#[derive(Debug)]
 pub struct Material {
-    pub albedo: Color,
+    pub albedo: Vec3f,
     pub rough: f32,
     pub metal: f32,
     pub glass: f32,
@@ -115,36 +86,23 @@ pub struct Material {
     pub emap: Option<Texture>, // emit map
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(tag = "type", rename_all = "lowercase")]
+#[derive(Debug)]
 pub enum RendererKind {
-    Sphere {r: f32},
-    Plane {n: Vec3f},
+    Sphere{r: f32},
+    Plane{n: Vec3f},
     Box{sizes: Vec3f},
     Triangle{vtx: (Vec3f, Vec3f, Vec3f)}
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "lowercase")]
+#[derive(Debug)]
 pub struct Renderer {
-    #[serde(flatten)]
     pub kind: RendererKind,
-
-    #[serde(default)]
     pub mat: Material,
-
-    #[serde(default)]
     pub pos: Vec3f,
-
-    #[serde(default = "Vec4f::forward")]
-    pub dir: Vec4f,
-
-    #[serde(default)]
-    pub name: Option<String>
+    pub dir: Vec4f
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(tag = "type", rename_all = "lowercase")]
+#[derive(Debug)]
 pub enum LightKind {
     Point {
         pos: Vec3f
@@ -154,24 +112,20 @@ pub enum LightKind {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(default)]
+#[derive(Debug)]
 pub struct Light {
-    #[serde(flatten)]
     pub kind: LightKind,
     pub pwr: f32,
-    pub color: Color
+    pub color: Vec3f
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-#[serde(default)]
+#[derive(Debug)]
 pub struct Sky {
-    pub color: Color,
+    pub color: Vec3f,
     pub pwr: f32
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-#[serde(default)]
+#[derive(Debug)]
 pub struct Scene {
     pub renderer: Option<Vec<Renderer>>,
     pub light: Option<Vec<Light>>,
@@ -185,27 +139,6 @@ impl <'a> From<&'a Ray> for Vec3f {
     }
 }
 
-impl Default for Render {
-    fn default() -> Self {
-        Render {
-            rt: RayTracer::default(),
-            frame: Frame::default(),
-            scene: Scene::default()
-        }
-    }
-}
-
-impl Default for RayTracer {
-    fn default() -> Self {
-        RayTracer {
-            bounce: 8,
-            sample: 16,
-            loss: 0.15,
-            sampler: RayTracer::default_sampler()
-        }
-    }
-}
-
 impl Default for Ray {
     fn default() -> Self {
         Ray {
@@ -214,96 +147,6 @@ impl Default for Ray {
             pwr: 1.0,
             bounce: 0,
             t: 0.0
-        }
-    }
-}
-
-impl Default for Camera {
-    fn default() -> Self {
-        Camera {
-            pos: -Vec3f::forward(),
-            dir: Vec4f::forward(),
-            fov: 70.0,
-            gamma: 0.8,
-            exp: 0.2,
-            aprt: 0.001,
-            foc: 100.0
-        }
-    }
-}
-
-impl Default for Frame {
-    fn default() -> Self {
-        Frame {
-            res: (1280, 720),
-            ssaa: 1.0,
-            cam: Camera::default()
-        }
-    }
-}
-
-impl Default for Sky {
-    fn default() -> Self {
-        Sky {
-            color: Color::Vec3(Vec3f::zero()),
-            pwr: 0.5
-        }
-    }
-}
-
-impl Default for Scene {
-    fn default() -> Self {
-        Scene {
-            renderer: None,
-            light: None,
-            sky: Sky::default()
-        }
-    }
-}
-
-impl Default for Color {
-    fn default() -> Self {
-        Color::Vec3(Vec3f::from([1.0, 1.0, 1.0]))
-    }
-}
-
-impl Default for Material {
-    fn default() -> Self {
-        Material {
-            albedo: Color::default(),
-            rough: 0.0,
-            metal: 0.0,
-            glass: 0.0,
-            opacity: 1.0,
-            emit: 0.0,
-            tex: None,
-            rmap: None,
-            mmap: None,
-            gmap: None,
-            omap: None,
-            emap: None
-        }
-    }
-}
-
-impl Default for BufferF32 {
-    fn default() -> Self {
-        BufferF32 {
-            w: 0,
-            h: 0,
-            dat: None
-        }
-    }
-}
-
-impl Default for Light {
-    fn default() -> Self {
-        Light {
-            kind: LightKind::Point{
-                pos: Vec3f::default()
-            },
-            pwr: 0.5,
-            color: Color::default()
         }
     }
 }
@@ -377,102 +220,15 @@ impl <'a> RayHit<'a> {
     }
 }
 
-impl Color {
-    pub fn vec3(&self) -> Vec3f {
-        if let Color::Vec3(v) = self {
-            return v.clone();
-        }
-        panic!("color is not ready!")
-    }
-
-    pub fn to_vec3(&mut self) -> Result<(), String> {
-        match &self {
-            Color::Hex(s) => {
-                if s.starts_with("#") {
-                    let v = <u32>::from_str_radix(&s[1..7], 16).map_err(|e| e.to_string())?
-                    .to_le_bytes()[..3]
-                    .iter()
-                    .rev()
-                    .map(|v| *v as f32 / 255.0)
-                    .collect::<Vec<_>>();
-
-                    *self = Color::Vec3(Vec3f::from(&v[..]));
-                } else {
-                    panic!("{} is not a hex color!", s);
-                }
-            },
-            _ => ()
-        }
-        Ok(())
-    }
-}
-
 impl Texture {
-    pub fn load(name: &str) -> Result<Texture, String> {
-        let mut tmp = image::open(name).map_err(|e| e.to_string())?;
-        let img = tmp.as_mut_rgb8().ok_or("is not rgb888 image!".to_string())?;
-        let size = img.dimensions();
-
-        let out = img.pixels().map(|px| Vec3f::from(px.0.map(|v| v as f32 / 255.0))).collect();
-
-        Ok(Texture::Buffer(BufferF32 {
-            w: size.0 as usize,
-            h: size.1 as usize,
-            dat: Some(out)
-        }))
-    }
-
-    pub fn from_inline(s: &str) -> Result<Texture, String> {
-        let decoded = base64::decode(s).map_err(|e| e.to_string())?;
-
-        let mut dec = GzDecoder::new(decoded.as_bytes());
-        let mut self_json = String::new();
-
-        dec.read_to_string(&mut self_json).map_err(|e| e.to_string())?;
-        Ok(serde_json::from_str::<Texture>(&self_json).map_err(|e| e.to_string())?)
-    }
-
-    pub fn to_buffer(&mut self) -> Result<(), String> {
-        match self {
-            Texture::File(name) => *self = Texture::load(name.as_os_str().to_str().ok_or("cannot convert to string!".to_string())?)?,
-            Texture::InlineBase64(s) => {
-                if s.contains(".") {
-                    *self = Texture::load(s)?;
-                } else {
-                    *self = Texture::from_inline(s)?;
-                }
-            },
-            _ => ()
-        }
-        Ok(())
-    }
-
-    pub fn to_inline(&mut self) -> Result<(), String>{
-        self.to_buffer()?;
-
-        let s = serde_json::to_string(self).map_err(|e| e.to_string())?;
-
-        let mut enc = GzEncoder::new(vec![], flate2::Compression::best());
-        enc.write_all(s.as_bytes()).map_err(|e| e.to_string())?;
-
-        let compress = enc.finish().map_err(|e| e.to_string())?;
-        let encoded = base64::encode(compress);
-
-        *self = Texture::InlineBase64(encoded);
-        Ok(())
-    }
-
     pub fn get_color(&self, uv: Vec2f) -> Vec3f {
-        if let Texture::Buffer(buf) = self {
-            let x = (uv.x * buf.w as f32) as usize;
-            let y = (uv.y * buf.h as f32) as usize;
+        let x = (uv.x * self.w as f32) as usize;
+        let y = (uv.y * self.h as f32) as usize;
 
-            if let Some(dat) = &buf.dat {
-                return dat[(x + y * buf.w) as usize];
-            }
-            return Vec3f::zero()
+        if let Some(dat) = &self.dat {
+            return dat[(x + y * self.w) as usize];
         }
-        panic!("buffer is not ready!")
+        return Vec3f::zero()
     }
 }
 
@@ -713,10 +469,10 @@ impl Renderer {
     pub fn get_color(&self, v: Option<Vec3f>) -> Vec3f {
         if let Some(tex) = &self.mat.tex {
             if let Some(v) = v {
-                return self.mat.albedo.vec3().hadam(tex.get_color(self.to_uv(v)));
+                return self.mat.albedo.hadam(tex.get_color(self.to_uv(v)));
             }
         }
-        self.mat.albedo.vec3()
+        self.mat.albedo
     }
 
     pub fn get_rough(&self, v: Option<Vec3f>) -> f32 {
@@ -843,13 +599,13 @@ impl RayTracer {
 
     pub fn reduce_light<'a, I>(&self, scene: &'a Scene, it: I) -> Vec3f where I: Iterator<Item = (RayHit<'a>, Option<Vec<&'a Light>>)> + Clone {
         if it.clone().count() == 0 {
-            return scene.sky.color.vec3();
+            return scene.sky.color;
         }
 
         let tmp = it.collect::<Vec<_>>();
         let path = tmp.iter().rev();
 
-        path.fold(scene.sky.color.vec3() * scene.sky.pwr, |col, (hit, lights)| {
+        path.fold(scene.sky.color * scene.sky.pwr, |col, (hit, lights)| {
             // emit
             let emit = hit.get_emit();
 
@@ -870,7 +626,7 @@ impl RayTracer {
     
                     let o_col = hit.get_color() * (1.0 - hit.get_metal());
     
-                    ((o_col * diff).hadam(light.color.vec3()) + spec) * light.pwr
+                    ((o_col * diff).hadam(light.color) + spec) * light.pwr
                 }).sum()
             });
 

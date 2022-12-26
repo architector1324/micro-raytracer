@@ -3,10 +3,10 @@ use std::time::{Duration, Instant};
 use clap::Parser;
 use log::info;
 
-use crate::cli_parser::{ParseFromStrIter, ParseFromArgs, FromArgs};
-use crate::rt::{Render, Scene, Camera, Color};
+use crate::parser::{ParseFromStrIter, ParseFromArgs, FromArgs, RenderWrapper, CameraWrapper, SceneWrapper, ColorWrapper};
+use crate::lin::Vec3f;
+use crate::rt::Render;
 use crate::sampler::Sampler;
-
 
 #[derive(Parser)]
 #[command(author, version, about = "Tiny raytracing microservice.", long_about = None)]
@@ -75,8 +75,8 @@ pub struct CLI {
 
 
 impl CLI {
-    pub fn parse_render(&self) -> Result<Render, String> {
-        let mut render = Render::default();
+    pub fn parse_render(&self) -> Result<RenderWrapper, String> {
+        let mut render = RenderWrapper::default();
 
         // prase full
         if let Some(full_json_filename) = &self.full {
@@ -114,7 +114,7 @@ impl CLI {
         }
 
         if let Some(cam_args) = &self.cam {
-            render.frame.cam = Camera::from_args(cam_args)?;
+            render.frame.cam = CameraWrapper::from_args(cam_args)?;
         }
 
         // parse scene
@@ -124,7 +124,7 @@ impl CLI {
         }
 
         if let Some(objs_args) = &self.obj {
-            let new_objs = Scene::parse_args(&objs_args, &["sphere", "sph", "plane", "pln", "box", "tri", "triangle"])?;
+            let new_objs = SceneWrapper::parse_args(&objs_args, &["sphere", "sph", "plane", "pln", "box", "tri", "triangle"])?;
 
             if let Some(ref mut objs) = render.scene.renderer {
                 objs.extend(new_objs);
@@ -134,7 +134,7 @@ impl CLI {
         }
 
         if let Some(lights_args) = &self.light {
-            let new_lights = Scene::parse_args(&lights_args, &["pt:", "point:", "dir:"])?;
+            let new_lights = SceneWrapper::parse_args(&lights_args, &["pt:", "point:", "dir:"])?;
 
             if let Some(ref mut lights) = render.scene.light {
                 lights.extend(new_lights);
@@ -145,7 +145,7 @@ impl CLI {
 
         if let Some(sky) = &self.sky {
             let mut it = sky.iter();
-            render.scene.sky.color = Color::parse(&mut it)?;
+            render.scene.sky.color = ColorWrapper::Vec3(Vec3f::parse(&mut it)?);
             render.scene.sky.pwr = <f32>::parse(&mut it)?;
         }
 
@@ -153,40 +153,6 @@ impl CLI {
     }
 
     pub fn raytrace(&self, render: &mut Render) -> Result<Duration, String> {
-        // unwrap textures
-        render.scene.sky.color.to_vec3()?;
-
-        if let Some(ref mut lights) = render.scene.light {
-            for light in lights {
-                light.color.to_vec3()?
-            }
-        }
-
-        if let Some(ref mut objs) = render.scene.renderer {
-            for obj in objs {
-                obj.mat.albedo.to_vec3()?;
-
-                if let Some(tex) = &mut obj.mat.tex {
-                    tex.to_buffer()?;
-                }
-                if let Some(rmap) = &mut obj.mat.rmap {
-                    rmap.to_buffer()?;
-                }
-                if let Some(mmap) = &mut obj.mat.mmap {
-                    mmap.to_buffer()?;
-                }
-                if let Some(gmap) = &mut obj.mat.gmap {
-                    gmap.to_buffer()?;
-                }
-                if let Some(omap) = &mut obj.mat.omap {
-                    omap.to_buffer()?;
-                }
-                if let Some(emap) = &mut obj.mat.emap {
-                    emap.to_buffer()?;
-                }
-            }
-        }
-
         // raytrace
         let mut sampler = Sampler::new(self.worker.unwrap_or(24), self.dim.unwrap_or(64));
         let filename = self.output.clone().unwrap_or(PathBuf::from("out.png"));

@@ -3,4 +3,4 @@ pub mod rt;
 pub mod cli;
 pub mod http;
 pub mod sampler;
-pub mod cli_parser;
+pub mod parser;

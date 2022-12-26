@@ -2,6 +2,7 @@ use std::net::TcpListener;
 
 use clap::Parser;
 use log::{LevelFilter, info, error};
+use micro_raytracer::parser::Wrapper;
 use simplelog::{TermLogger, TerminalMode, Config, ColorChoice};
 
 use micro_raytracer::http::HttpServer;
@@ -29,7 +30,7 @@ fn main_wrapped() -> Result<(), String> {
     }
 
     // parse render
-    let mut render = cli.parse_render()?;
+    let render = cli.parse_render()?;
 
     // verbose
     if cli.pretty {
@@ -42,7 +43,7 @@ fn main_wrapped() -> Result<(), String> {
         return Ok(());
     }
 
-    let time = cli.raytrace(&mut render)?;
+    let time = cli.raytrace(&mut render.unwrap()?)?;
 
     info!("cli:done: {:?}", time);
 
