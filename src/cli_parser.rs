@@ -146,6 +146,11 @@ impl FromArgs for Renderer {
                 "sph" | "sphere" => RendererKind::Sphere {r: 0.5},
                 "pln" | "plane" => RendererKind::Plane {n: Vec3f{x: 0.0, y: 0.0, z: 1.0}},
                 "box" => RendererKind::Box {sizes: Vec3f{x: 0.5, y: 0.5, z: 0.5}},
+                "tri" | "triangle" => RendererKind::Triangle {vtx: (
+                    Vec3f{x: -0.5, y: 0.0, z: -0.25},
+                    Vec3f{x: 0.0, y: 0.0, z: 0.5},
+                    Vec3f{x: 0.5, y: 0.0, z: -0.25}
+                )},
                 _ => return Err(format!("`{}` type is unxpected!", t))
             },
             pos: Vec3f::default(),
@@ -177,6 +182,18 @@ impl FromArgs for Renderer {
                 RendererKind::Box {ref mut sizes} => {
                     if param.as_str() == "size:" {
                         *sizes = Vec3f::parse(&mut it)?;
+                        true
+                    } else {
+                        false
+                    }
+                },
+                RendererKind::Triangle {ref mut vtx} => {
+                    if param.as_str() == "vtx:" {
+                        *vtx = (
+                            Vec3f::parse(&mut it)?,
+                            Vec3f::parse(&mut it)?,
+                            Vec3f::parse(&mut it)?
+                        );
                         true
                     } else {
                         false

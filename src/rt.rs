@@ -120,7 +120,8 @@ pub struct Material {
 pub enum RendererKind {
     Sphere {r: f32},
     Plane {n: Vec3f},
-    Box{sizes: Vec3f}
+    Box{sizes: Vec3f},
+    Triangle{vtx: (Vec3f, Vec3f, Vec3f)}
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -477,14 +478,14 @@ impl Texture {
 
 impl Renderer {
     pub fn intersect(&self, ray: &Ray) -> Option<(f32, f32)> {
+        let rot_y = Mat3f::rotate_y(self.dir);
+        let look = Mat4f::lookat(self.dir, Vec3f::up());
+
+        let n_orig = self.pos + rot_y * (look * (ray.orig - self.pos));
+        let n_dir = rot_y * (look * ray.dir);
+
         match self.kind {
             RendererKind::Sphere{r} => {
-                let rot_y = Mat3f::rotate_y(self.dir);
-                let look = Mat4f::lookat(self.dir, Vec3f::up());
-
-                let n_orig = self.pos + rot_y * (look * (ray.orig - self.pos));
-                let n_dir = rot_y * (look * ray.dir);
-
                 let o = n_orig - self.pos;
 
                 let a = n_dir * n_dir;
@@ -508,7 +509,7 @@ impl Renderer {
             },
             RendererKind::Plane{n} => {
                 let d = -n.norm() * self.pos;
-                let t = -(ray.orig * n.norm() + d) / (ray.dir * n.norm());
+                let t = -(n_orig * n.norm() + d) / (n_dir * n.norm());
 
                 if t > 0.0 {
                     return Some((t, t));
@@ -516,12 +517,6 @@ impl Renderer {
                 None
             },
             RendererKind::Box{sizes} => {
-                let rot_y = Mat3f::rotate_y(self.dir);
-                let look = Mat4f::lookat(self.dir, Vec3f::up());
-
-                let n_orig = self.pos + rot_y * (look * (ray.orig - self.pos));
-                let n_dir = rot_y * (look * ray.dir);
-
                 let mut m = n_dir.recip();
 
                 // workaround for zero division
@@ -551,20 +546,55 @@ impl Renderer {
                 }
 
                 Some((t0, t1))
+            },
+            RendererKind::Triangle{vtx} => {
+                let e0 = vtx.1 - vtx.0;
+                let e1 = vtx.2 - vtx.0;
+
+                let p = n_dir.cross(e1);
+                let d = e0 * p;
+
+                if d < E && d > -E {
+                    return None;
+                }
+
+                let inv_d = d.recip();
+                let t = n_orig - (vtx.0 + self.pos);
+                let u = (t * p) * inv_d;
+
+                if u < 0.0 || u > 1.0 {
+                    return None;
+                }
+
+                let q = t.cross(e0);
+                let v = (n_dir * q) * inv_d;
+
+                if v < 0.0 || (u + v) > 1.0 {
+                    return None;
+                }
+
+                let t = (e1 * q) * inv_d;
+
+                if t < 0.0 {
+                    return None
+                }
+
+                Some((t, t))
             }
         }
     }
 
     pub fn normal(&self, hit: Vec3f) -> Vec3f {
+        let rot_y = Mat3f::rotate_y(self.dir);
+        let look = Mat4f::lookat(self.dir, Vec3f::up());
+
+        let n_hit = self.pos + rot_y * (look * (hit - self.pos));
+        let n_dir = rot_y * (look * (-self.dir.proj()));
+
         match self.kind {
             RendererKind::Sphere{..} => (hit - self.pos).norm(),
             RendererKind::Plane{n} => n.norm(),
             RendererKind::Box{sizes} => {
-                let rot_y = Mat3f::rotate_y(self.dir);
-                let look = Mat4f::lookat(self.dir, Vec3f::up());
-
-                let n_hit = self.pos + rot_y * (look * (hit - self.pos));
-
                 let p = (n_hit - self.pos).hadam(sizes.recip() * 2.0);
 
                 let pos_r = 1.0-E..1.0+E;
@@ -592,17 +622,22 @@ impl Renderer {
                     // error
                     Vec3f::zero()
                 }
+            },
+            RendererKind::Triangle{vtx} => {
+                let e1 = vtx.2 - vtx.0;
+                n_dir.cross(e1)
             }
         }
     }
 
     pub fn to_uv(&self, hit: Vec3f) -> Vec2f {
+        let rot_y = Mat3f::rotate_y(self.dir);
+        let look = Mat4f::lookat(self.dir, Vec3f::up());
+        let n_hit = self.pos + rot_y * (look * (hit - self.pos));
+        let n_dir = rot_y * (look * (-self.dir.proj()));
+
         match self.kind {
             RendererKind::Sphere{..} => {
-                let rot_y = Mat3f::rotate_y(self.dir);
-                let look = Mat4f::lookat(self.dir, Vec3f::up());
-                let n_hit = self.pos + rot_y * (look * (hit - self.pos));
-
                 let v = (n_hit - self.pos).norm();
                 Vec2f {
                     x: 0.5 + 0.5 * v.x.atan2(-v.y) / PI,
@@ -610,16 +645,12 @@ impl Renderer {
                 }
             },
             RendererKind::Plane{..} => {
-                let rot_y = Mat3f::rotate_y(self.dir);
-                let look = Mat4f::lookat(self.dir, Vec3f::up());
-                let v = rot_y * (look * hit);
-
-                let mut x = (v.x + 0.5).fract();
+                let mut x = (n_hit.x + 0.5).fract();
                 if x < 0.0 {
                     x = 1.0 + x;
                 }
 
-                let mut y = (v.y + 0.5).fract();
+                let mut y = (n_hit.y + 0.5).fract();
                 if y < 0.0 {
                     y = 1.0 + y;
                 }
@@ -627,11 +658,6 @@ impl Renderer {
                 Vec2f{x, y}
             },
             RendererKind::Box {sizes} => {
-                let rot_y = Mat3f::rotate_y(self.dir);
-                let look = Mat4f::lookat(self.dir, Vec3f::up());
-
-                let n_hit = self.pos + rot_y * (look * (hit - self.pos));
-
                 let p = (n_hit - self.pos).hadam(sizes.recip() * 2.0);
 
                 let pos_r = 1.0-E..1.0+E;
@@ -677,6 +703,9 @@ impl Renderer {
                     // error
                     return Vec2f::zero();
                 }
+            },
+            RendererKind::Triangle{vtx} => {
+                todo!()
             }
         }
     }
