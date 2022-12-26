@@ -91,7 +91,8 @@ pub enum RendererKind {
     Sphere{r: f32},
     Plane{n: Vec3f},
     Box{sizes: Vec3f},
-    Triangle{vtx: (Vec3f, Vec3f, Vec3f)}
+    Triangle{vtx: (Vec3f, Vec3f, Vec3f)},
+    Mesh(Vec<(Vec3f, Vec3f, Vec3f)>)
 }
 
 #[derive(Debug)]
@@ -336,6 +337,10 @@ impl Renderer {
                 }
 
                 Some((t, t))
+            },
+            RendererKind::Mesh(ref mesh) => {
+                println!("{:?}", mesh);
+                todo!()
             }
         }
     }
@@ -382,6 +387,9 @@ impl Renderer {
             RendererKind::Triangle{vtx} => {
                 let e1 = vtx.2 - vtx.0;
                 n_dir.cross(e1)
+            },
+            RendererKind::Mesh(ref mesh) => {
+                todo!()
             }
         }
     }
@@ -413,7 +421,7 @@ impl Renderer {
 
                 Vec2f{x, y}
             },
-            RendererKind::Box {sizes} => {
+            RendererKind::Box{sizes} => {
                 let p = (n_hit - self.pos).hadam(sizes.recip() * 2.0);
 
                 let pos_r = 1.0-E..1.0+E;
@@ -461,6 +469,9 @@ impl Renderer {
                 }
             },
             RendererKind::Triangle{vtx} => {
+                todo!()
+            },
+            RendererKind::Mesh(ref mesh) => {
                 todo!()
             }
         }

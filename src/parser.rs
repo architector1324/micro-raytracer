@@ -1,3 +1,5 @@
+use std::fs::File;
+use std::io::BufReader;
 use std::path::PathBuf;
 use image::EncodableLayout;
 use flate2::read::GzDecoder;
@@ -110,12 +112,21 @@ pub struct MaterialWrapper {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+#[serde(untagged)]
+pub enum MeshWrapper {
+    Mesh(Vec<(Vec3f, Vec3f, Vec3f)>),
+    InlineBase64(String),
+    File(PathBuf)
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum RendererKindWrapper {
     Sphere{r: f32},
     Plane{n: Vec3f},
     Box{sizes: Vec3f},
-    Triangle{vtx: (Vec3f, Vec3f, Vec3f)}
+    Triangle{vtx: (Vec3f, Vec3f, Vec3f)},
+    Mesh{mesh: MeshWrapper}
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -406,6 +417,15 @@ impl FromArgs for RendererWrapper {
                     Vec3f{x: 0.0, y: 0.0, z: 0.5},
                     Vec3f{x: 0.5, y: 0.0, z: -0.25}
                 )},
+                "mesh" => RendererKindWrapper::Mesh {
+                    mesh: MeshWrapper::Mesh(
+                        vec![(
+                            Vec3f{x: -0.5, y: 0.0, z: -0.25},
+                            Vec3f{x: 0.0, y: 0.0, z: 0.5},
+                            Vec3f{x: 0.5, y: 0.0, z: -0.25}
+                        )]
+                    )
+                },
                 _ => return Err(format!("`{}` type is unxpected!", t))
             },
             pos: Vec3f::default(),
@@ -449,6 +469,33 @@ impl FromArgs for RendererWrapper {
                             Vec3f::parse(&mut it)?,
                             Vec3f::parse(&mut it)?
                         );
+                        true
+                    } else {
+                        false
+                    }
+                },
+                RendererKindWrapper::Mesh{ref mut mesh} => {
+                    if param.as_str() == "mesh:" {
+                        let mut tmp = vec![(
+                            Vec3f::parse(&mut it)?,
+                            Vec3f::parse(&mut it)?,
+                            Vec3f::parse(&mut it)?
+                        )];
+
+                        loop {
+                            let v0 = Vec3f::parse(&mut it);
+                            let v1 = Vec3f::parse(&mut it);
+                            let v2 = Vec3f::parse(&mut it);
+
+                            if v0.is_err() || v1.is_err() || v2.is_err() {
+                                break;
+                            }
+
+                            tmp.push((v0?, v1?, v2?));
+                        }
+
+                        *mesh = MeshWrapper::Mesh(tmp);
+
                         true
                     } else {
                         false
@@ -549,6 +596,63 @@ impl ParseFromArgs<RendererWrapper> for SceneWrapper {}
 impl ParseFromArgs<LightWrapper> for SceneWrapper {}
 
 
+impl MeshWrapper {
+    pub fn load(name: &str) -> Result<Self, String> {
+        let tmp = BufReader::new(File::open(name).map_err(|e| e.to_string())?);
+        let obj: obj::Obj = obj::load_obj(tmp).map_err(|e| e.to_string())?;
+
+        let mut mesh = Vec::new();
+
+        for idx in obj.indices.chunks(3) {
+            mesh.push((
+                Vec3f::from(obj.vertices[idx[0] as usize].position),
+                Vec3f::from(obj.vertices[idx[1] as usize].position),
+                Vec3f::from(obj.vertices[idx[2] as usize].position),
+            ));
+        }
+
+        Ok(MeshWrapper::Mesh(mesh))
+    }
+
+    pub fn from_inline(s: &str) -> Result<Self, String> {
+        let decoded = base64::decode(s).map_err(|e| e.to_string())?;
+
+        let mut dec = GzDecoder::new(decoded.as_bytes());
+        let mut self_json = String::new();
+
+        dec.read_to_string(&mut self_json).map_err(|e| e.to_string())?;
+        Ok(serde_json::from_str::<MeshWrapper>(&self_json).map_err(|e| e.to_string())?)
+    }
+
+    pub fn to_buffer(self) -> Result<Self, String> {
+        match self {
+            MeshWrapper::File(name) => MeshWrapper::load(name.as_os_str().to_str().ok_or("cannot convert to string!".to_string())?),
+            MeshWrapper::InlineBase64(s) => {
+                if s.contains(".") {
+                    MeshWrapper::load(s.as_str())
+                } else {
+                    MeshWrapper::from_inline(s.as_str())
+                }
+            },
+            _ => Ok(self)
+        }
+    }
+
+    pub fn to_inline(self) -> Result<Self, String> {
+        let buf = self.to_buffer()?;
+
+        let s = serde_json::to_string(&buf).map_err(|e| e.to_string())?;
+
+        let mut enc = GzEncoder::new(vec![], flate2::Compression::best());
+        enc.write_all(s.as_bytes()).map_err(|e| e.to_string())?;
+
+        let compress = enc.finish().map_err(|e| e.to_string())?;
+        let encoded = base64::encode(compress);
+
+        Ok(MeshWrapper::InlineBase64(encoded))
+    }
+}
+
 impl TextureWrapper {
     pub fn load(name: &str) -> Result<Self, String> {
         let mut tmp = image::open(name).map_err(|e| e.to_string())?;
@@ -564,7 +668,7 @@ impl TextureWrapper {
         }))
     }
 
-    pub fn from_inline(s: &str) -> Result<TextureWrapper, String> {
+    pub fn from_inline(s: &str) -> Result<Self, String> {
         let decoded = base64::decode(s).map_err(|e| e.to_string())?;
 
         let mut dec = GzDecoder::new(decoded.as_bytes());
@@ -574,7 +678,7 @@ impl TextureWrapper {
         Ok(serde_json::from_str::<TextureWrapper>(&self_json).map_err(|e| e.to_string())?)
     }
 
-    pub fn to_buffer(self) -> Result<TextureWrapper, String> {
+    pub fn to_buffer(self) -> Result<Self, String> {
         match self {
             TextureWrapper::File(name) => TextureWrapper::load(name.as_os_str().to_str().ok_or("cannot convert to string!".to_string())?),
             TextureWrapper::InlineBase64(s) => {
@@ -588,7 +692,7 @@ impl TextureWrapper {
         }
     }
 
-    pub fn to_inline(self) -> Result<TextureWrapper, String>{
+    pub fn to_inline(self) -> Result<Self, String> {
         let buf = self.to_buffer()?;
 
         let s = serde_json::to_string(&buf).map_err(|e| e.to_string())?;
@@ -695,13 +799,26 @@ impl Wrapper<Material> for MaterialWrapper {
     }
 }
 
+impl Wrapper<RendererKind> for MeshWrapper {
+    fn unwrap(self) -> Result<RendererKind, String> {
+        let buf = self.to_buffer()?;
+
+        if let MeshWrapper::Mesh(mesh) = buf {
+            return Ok(RendererKind::Mesh(mesh))
+        }
+
+        unreachable!()
+    }
+}
+
 impl Wrapper<RendererKind> for RendererKindWrapper {
     fn unwrap(self) -> Result<RendererKind, String> {
         match self {
-            RendererKindWrapper::Sphere {r} => Ok(RendererKind::Sphere {r}),
-            RendererKindWrapper::Plane {n} => Ok(RendererKind::Plane {n}),
-            RendererKindWrapper::Box {sizes} => Ok(RendererKind::Box {sizes}),
-            RendererKindWrapper::Triangle {vtx} => Ok(RendererKind::Triangle {vtx})
+            RendererKindWrapper::Sphere{r} => Ok(RendererKind::Sphere{r}),
+            RendererKindWrapper::Plane{n} => Ok(RendererKind::Plane{n}),
+            RendererKindWrapper::Box{sizes} => Ok(RendererKind::Box{sizes}),
+            RendererKindWrapper::Triangle{vtx} => Ok(RendererKind::Triangle{vtx}),
+            RendererKindWrapper::Mesh{mesh} => mesh.unwrap()
         }
     }
 }

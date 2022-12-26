@@ -124,7 +124,7 @@ impl CLI {
         }
 
         if let Some(objs_args) = &self.obj {
-            let new_objs = SceneWrapper::parse_args(&objs_args, &["sphere", "sph", "plane", "pln", "box", "tri", "triangle"])?;
+            let new_objs = SceneWrapper::parse_args(&objs_args, &["sphere", "sph", "plane", "pln", "box", "tri", "triangle", "mesh"])?;
 
             if let Some(ref mut objs) = render.scene.renderer {
                 objs.extend(new_objs);

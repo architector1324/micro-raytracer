@@ -1,0 +1,18 @@
+{
+    "scene": {
+        "renderer": [
+            {
+                "type": "mesh",
+                "mesh": "H4sIAAAAAAAC/42RUQ6AIAxDL7Rn9DwL97+GmojB0U0+SGhoF/rm7hzbbs9p5veNr+zqkvGZVxPi9AQqMiSYI7UjjhgT6hPmk110LscHPwISS5TSyimlv8boygXVdM+sMFJE2wlCu4HBRwIAAA=="
+            }
+        ],
+        "light": [
+            {
+                "type": "point",
+                "pos": [-0.5, -1, 0.5],
+                "pwr": 0.5,
+                "color": "#ffffff"
+            }
+        ]
+    }
+}
