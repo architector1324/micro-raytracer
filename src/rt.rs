@@ -40,8 +40,9 @@ pub struct Ray {
 #[derive(Debug)]
 pub struct RayHit<'a> {
     pub obj: &'a Renderer,
-    pub ray: (Ray, Ray),
-    pub norm: (Vec3f, Vec3f)
+    pub idx: Option<usize>,
+    pub ray: Ray,
+    pub norm: Vec3f
 }
 
 #[derive(Debug)]
@@ -171,7 +172,7 @@ impl Ray {
             rough = 1.0;
         }
 
-        let norm = rt.rand(hit.norm.0, rough);
+        let norm = rt.rand(hit.norm, rough);
         let dir = self.dir.reflect(norm).norm();
 
         Ray::cast(self.into(), dir, self.pwr * (1.0 - rt.loss.min(1.0)), self.bounce + 1)
@@ -186,7 +187,7 @@ impl Ray {
             rough = 1.0;
         }
 
-        let norm = rt.rand(hit.norm.1, rough);
+        let norm = rt.rand(hit.norm, rough);
 
         let eta = 1.0 + 0.5 * hit.get_glass();
         let dir = self.dir.refract(eta, norm)?.norm();
@@ -197,27 +198,27 @@ impl Ray {
 
 impl <'a> RayHit<'a> {
     pub fn get_color(&self) -> Vec3f {
-        self.obj.get_color(Some((&self.ray.0).into()))
+        self.obj.get_color(Some((&self.ray).into()))
     }
 
     pub fn get_rough(&self) -> f32 {
-        self.obj.get_rough(Some((&self.ray.0).into()))
+        self.obj.get_rough(Some((&self.ray).into()))
     }
 
     pub fn get_metal(&self) -> f32 {
-        self.obj.get_metal(Some((&self.ray.0).into()))
+        self.obj.get_metal(Some((&self.ray).into()))
     }
 
     pub fn get_glass(&self) -> f32 {
-        self.obj.get_glass(Some((&self.ray.0).into()))
+        self.obj.get_glass(Some((&self.ray).into()))
     }
 
     pub fn get_opacity(&self) -> f32 {
-        self.obj.get_opacity(Some((&self.ray.0).into()))
+        self.obj.get_opacity(Some((&self.ray).into()))
     }
 
     pub fn get_emit(&self) -> f32 {
-        self.obj.get_emit(Some((&self.ray.0).into()))
+        self.obj.get_emit(Some((&self.ray).into()))
     }
 }
 
@@ -234,7 +235,7 @@ impl Texture {
 }
 
 impl Renderer {
-    pub fn intersect(&self, ray: &Ray) -> Option<(f32, f32)> {
+    pub fn intersect(&self, ray: &Ray) -> Option<((f32, Option<usize>), (f32, Option<usize>))> {
         let rot_y = Mat3f::rotate_y(self.dir);
         let look = Mat4f::lookat(self.dir, Vec3f::up());
 
@@ -259,7 +260,7 @@ impl Renderer {
                 let t1 = (-b + disc.sqrt()) / (2.0 * a);
 
                 if t0 >= 0.0 {
-                    return Some((t0, t1));
+                    return Some(((t0, None), (t1, None)));
                 }
 
                 None
@@ -269,7 +270,7 @@ impl Renderer {
                 let t = -(n_orig * n.norm() + d) / (n_dir * n.norm());
 
                 if t > 0.0 {
-                    return Some((t, t));
+                    return Some(((t, None), (t, None)));
                 }
                 None
             },
@@ -302,7 +303,7 @@ impl Renderer {
                     return None
                 }
 
-                Some((t0, t1))
+                Some(((t0, None), (t1, None)))
             },
             RendererKind::Triangle{vtx} => {
                 let e0 = vtx.1 - vtx.0;
@@ -336,12 +337,12 @@ impl Renderer {
                     return None
                 }
 
-                Some((t, t))
+                Some(((t, None), (t, None)))
             },
             RendererKind::Mesh(ref mesh) => {
                 let mut hits = Vec::new();
 
-                for tri in mesh {
+                for (idx, tri) in mesh.iter().enumerate() {
                     let tri = Renderer {
                         kind: RendererKind::Triangle{vtx: tri.clone()},
                         dir: self.dir,
@@ -349,13 +350,13 @@ impl Renderer {
                         mat: self.mat.clone()
                     };
 
-                    if let Some(res) = tri.intersect(ray) {
-                        hits.push(res);
+                    if let Some(((t0, _), (t1, _))) = tri.intersect(ray) {
+                        hits.push(((t0, Some(idx)), (t1, Some(idx))));
                     }
                 }
 
-                let max = hits.iter().min_by(|(max, _), (t0, _)| max.total_cmp(&t0)).copied();
-                let min = hits.iter().max_by(|(_, min), (_, t1)| min.total_cmp(&t1)).copied();
+                let max = hits.iter().min_by(|((max, _), _), ((t0, _), _)| max.total_cmp(&t0)).copied();
+                let min = hits.iter().max_by(|(_, (min, _)), (_, (t1, _))| min.total_cmp(&t1)).copied();
 
                 if max.is_none() || min.is_none() {
                     return None;
@@ -366,15 +367,17 @@ impl Renderer {
         }
     }
 
-    pub fn normal(&self, hit: Vec3f) -> Vec3f {
+    pub fn normal<'a>(&self, hit: &RayHit<'a>) -> Vec3f {
+        let hit_p = Vec3f::from(&hit.ray);
+
         let rot_y = Mat3f::rotate_y(self.dir);
         let look = Mat4f::lookat(self.dir, Vec3f::up());
 
-        let n_hit = self.pos + rot_y * (look * (hit - self.pos));
+        let n_hit = self.pos + rot_y * (look * (hit_p - self.pos));
         let n_dir = rot_y * (look * (-self.dir.proj()));
 
         match self.kind {
-            RendererKind::Sphere{..} => (hit - self.pos).norm(),
+            RendererKind::Sphere{..} => (hit_p - self.pos).norm(),
             RendererKind::Plane{n} => n.norm(),
             RendererKind::Box{sizes} => {
                 let p = (n_hit - self.pos).hadam(sizes.recip() * 2.0);
@@ -410,7 +413,10 @@ impl Renderer {
                 n_dir.cross(e1)
             },
             RendererKind::Mesh(ref mesh) => {
-                -Vec3f::forward()
+                let tri = mesh[hit.idx.unwrap()];
+
+                let e1 = tri.2 - tri.0;
+                n_dir.cross(e1)
             }
         }
     }
@@ -554,22 +560,34 @@ impl Renderer {
 }
 
 impl RayTracer {
-    fn closest_hit<'a>(scene: &'a Scene, ray: &Ray) -> Option<RayHit<'a>> {
+    fn closest_hit<'a>(scene: &'a Scene, ray: &Ray) -> Option<(RayHit<'a>, RayHit<'a>)> {
         let hits = scene.renderer.as_deref()?.iter()
             .map(|obj| (obj, obj.intersect(&ray)))
             .filter_map(|(obj, p)| Some((obj, p?.0, p?.1)));
 
-        hits.min_by(|(_, max, _), (_, p, _)| max.total_cmp(&p)).and_then(|v| {
-            let r0 = Ray {t: v.1, ..ray.clone()};
-            let r1 = Ray {t: v.2, ..ray.clone()};
+        hits.min_by(|(_, (max, _), _), (_, (p, _), _)| max.total_cmp(&p)).and_then(|v| {
+            let r0 = Ray {t: v.1.0, ..ray.clone()};
+            let r1 = Ray {t: v.2.0, ..ray.clone()};
 
-            Some(
-                RayHit {
-                    obj: v.0,
-                    norm: (v.0.normal((&r0).into()), v.0.normal((&r1).into())),
-                    ray: (r0, r1),
-                }
-            )
+            let mut hit0 = RayHit {
+                obj: v.0,
+                idx: v.1.1,
+                norm: Vec3f::zero(),
+                ray: r0
+            };
+
+            hit0.norm = v.0.normal(&hit0);
+
+            let mut hit1 = RayHit {
+                obj: v.0,
+                idx: v.2.1,
+                norm: Vec3f::zero(),
+                ray: r1
+            };
+
+            hit1.norm = v.0.normal(&hit1);
+
+            Some((hit0, hit1))
         })
     }
 
@@ -649,12 +667,12 @@ impl RayTracer {
             let l_col = lights.as_ref().map_or(Vec3f::zero(), |lights| {
                 lights.iter().map(|light| {
                     let l = match light.kind {
-                        LightKind::Point{pos} => pos - Vec3f::from(&hit.ray.0),
+                        LightKind::Point{pos} => pos - Vec3f::from(&hit.ray),
                         LightKind::Dir{dir} => -dir.norm()
                     };
     
-                    let diff = (l.norm() * hit.norm.0).max(0.0);
-                    let spec = (hit.ray.0.dir * l.norm().reflect(hit.norm.0)).max(0.0).powi(32) * (1.0 - hit.get_rough());
+                    let diff = (l.norm() * hit.norm).max(0.0);
+                    let spec = (hit.ray.dir * l.norm().reflect(hit.norm)).max(0.0).powi(32) * (1.0 - hit.get_rough());
     
                     let o_col = hit.get_color() * (1.0 - hit.get_metal());
     
@@ -665,7 +683,7 @@ impl RayTracer {
             // indirect light
             let d_col = 0.5 * col + hit.get_color().hadam(col);
 
-            (d_col + l_col) * hit.ray.0.pwr
+            (d_col + l_col) * hit.ray.pwr
         })
     }
 
@@ -703,11 +721,11 @@ impl<'a> Iterator for RaytraceIterator<'a> {
             if let Some(lights) = self.scene.light.as_ref() {
                 for light in lights {
                     let l = match light.kind {
-                        LightKind::Point{pos} => pos - Vec3f::from(&hit.ray.0),
+                        LightKind::Point{pos} => pos - Vec3f::from(&hit.0.ray),
                         LightKind::Dir{dir} => -dir.norm()
                     };
 
-                    let ray_l = Ray::cast_default((&hit.ray.0).into(), l.norm());
+                    let ray_l = Ray::cast_default((&hit.0.ray).into(), l.norm());
         
                     if let Some(_) = RayTracer::closest_hit(self.scene, &ray_l) {
                         continue;
@@ -722,17 +740,17 @@ impl<'a> Iterator for RaytraceIterator<'a> {
             }
 
             // reflect
-            self.next_ray = hit.ray.0.reflect(self.rt, &hit);
-            let opacity = hit.get_opacity();
+            self.next_ray = hit.0.ray.reflect(self.rt, &hit.0);
+            let opacity = hit.0.get_opacity();
 
             // 15% chance to reflect for transparent material
             if rand::thread_rng().gen_bool((1.0 - opacity).min(0.85).into()) {
-                if let Some(r) = hit.ray.1.refract(self.rt, &hit) {
+                if let Some(r) = hit.1.ray.refract(self.rt, &hit.1) {
                     self.next_ray = r;
                 }
             }
 
-            return Some((hit, out_light))
+            return Some((hit.1, out_light))
         }
 
         None
