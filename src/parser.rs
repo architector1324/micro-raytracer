@@ -141,7 +141,7 @@ pub struct RendererWrapper {
     #[serde(default)]
     pub pos: Vec3f,
 
-    #[serde(default = "Vec4f::forward")]
+    #[serde(default = "Vec4f::backward")]
     pub dir: Vec4f,
 
     #[serde(default)]
@@ -413,23 +413,23 @@ impl FromArgs for RendererWrapper {
                 "pln" | "plane" => RendererKindWrapper::Plane {n: Vec3f{x: 0.0, y: 0.0, z: 1.0}},
                 "box" => RendererKindWrapper::Box {sizes: Vec3f{x: 0.5, y: 0.5, z: 0.5}},
                 "tri" | "triangle" => RendererKindWrapper::Triangle {vtx: (
-                    Vec3f{x: -0.5, y: 0.0, z: -0.25},
+                    Vec3f{x: 0.5, y: 0.0, z: -0.25},
                     Vec3f{x: 0.0, y: 0.0, z: 0.5},
-                    Vec3f{x: 0.5, y: 0.0, z: -0.25}
+                    Vec3f{x: -0.5, y: 0.0, z: -0.25},
                 )},
                 "mesh" => RendererKindWrapper::Mesh {
                     mesh: MeshWrapper::Mesh(
                         vec![(
-                            Vec3f{x: -0.5, y: 0.0, z: -0.25},
+                            Vec3f{x: 0.5, y: 0.0, z: -0.25},
                             Vec3f{x: 0.0, y: 0.0, z: 0.5},
-                            Vec3f{x: 0.5, y: 0.0, z: -0.25}
+                            Vec3f{x: -0.5, y: 0.0, z: -0.25},
                         )]
                     )
                 },
                 _ => return Err(format!("`{}` type is unxpected!", t))
             },
             pos: Vec3f::default(),
-            dir: Vec4f::forward(),
+            dir: Vec4f::backward(),
             mat: MaterialWrapper::default(),
             name: None
         };

@@ -451,7 +451,7 @@ raytrace -v -d --pretty --obj sphere --light point: -0.5 -1 0.5
                     "emap": null
                 },
                 "pos": [0, 0, 0],
-                "dir": [0, 0, 1, 0]
+                "dir": [0, 0, -1, 0]
             }
         ],
         "light": [

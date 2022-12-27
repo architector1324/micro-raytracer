@@ -37,7 +37,7 @@ pub struct Ray {
     pub bounce: usize
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct RayHit<'a> {
     pub obj: &'a Renderer,
     pub idx: Option<usize>,
@@ -236,8 +236,8 @@ impl Texture {
 
 impl Renderer {
     pub fn intersect(&self, ray: &Ray) -> Option<((f32, Option<usize>), (f32, Option<usize>))> {
-        let rot_y = Mat3f::rotate_y(self.dir);
-        let look = Mat4f::lookat(self.dir, Vec3f::up());
+        let rot_y = Mat3f::rotate_y(-self.dir);
+        let look = Mat4f::lookat(-self.dir, Vec3f::up());
 
         let n_orig = self.pos + rot_y * (look * (ray.orig - self.pos));
         let n_dir = rot_y * (look * ray.dir);
@@ -370,62 +370,67 @@ impl Renderer {
     pub fn normal<'a>(&self, hit: &RayHit<'a>) -> Vec3f {
         let hit_p = Vec3f::from(&hit.ray);
 
-        let rot_y = Mat3f::rotate_y(self.dir);
-        let look = Mat4f::lookat(self.dir, Vec3f::up());
+        let rot_y = Mat3f::rotate_y(-self.dir);
+        let look = Mat4f::lookat(-self.dir, Vec3f::up());
 
         let n_hit = self.pos + rot_y * (look * (hit_p - self.pos));
-        let n_dir = rot_y * (look * (-self.dir.proj()));
 
-        match self.kind {
-            RendererKind::Sphere{..} => (hit_p - self.pos).norm(),
-            RendererKind::Plane{n} => n.norm(),
+        let n = match self.kind {
+            RendererKind::Sphere{..} => n_hit - self.pos,
+            RendererKind::Plane{n} => n,
             RendererKind::Box{sizes} => {
                 let p = (n_hit - self.pos).hadam(sizes.recip() * 2.0);
 
                 let pos_r = 1.0-E..1.0+E;
                 let neg_r = -1.0-E..-1.0+E;
 
+                let mut n = Vec3f::zero();
+
                 if pos_r.contains(&p.x) {
                     // right
-                    return Vec3f::right()
+                    n = Vec3f::right()
                 } else if neg_r.contains(&p.x) {
                     // left
-                    return -Vec3f::right()
+                    n = -Vec3f::right()
                 } else if pos_r.contains(&p.y) {
                     // forward
-                    return Vec3f::forward()
+                    n = Vec3f::forward()
                 } else if neg_r.contains(&p.y) {
                     // backward
-                    return -Vec3f::forward()
+                    n = -Vec3f::forward()
                 } if pos_r.contains(&p.z) {
                     // top
-                    return Vec3f::up()
+                    n = Vec3f::up()
                 } else if neg_r.contains(&p.z) {
                     // bottom
-                    return -Vec3f::up()
-                } else {
-                    // error
-                    Vec3f::zero()
+                    n = -Vec3f::up()
                 }
+
+                n
             },
             RendererKind::Triangle{vtx} => {
+                let e0 = vtx.1 - vtx.0;
                 let e1 = vtx.2 - vtx.0;
-                n_dir.cross(e1)
+
+                e0.cross(e1)
             },
             RendererKind::Mesh(ref mesh) => {
                 let tri = mesh[hit.idx.unwrap()];
 
+                let e0 = tri.1 - tri.0;
                 let e1 = tri.2 - tri.0;
-                n_dir.cross(e1)
+
+                e0.cross(e1)
             }
-        }
+        };
+
+        (rot_y * (look * n)).norm()
     }
 
     pub fn to_uv(&self, hit: Vec3f) -> Vec2f {
-        let rot_y = Mat3f::rotate_y(self.dir);
-        let look = Mat4f::lookat(self.dir, Vec3f::up());
+        let rot_y = Mat3f::rotate_y(-self.dir);
+        let look = Mat4f::lookat(-self.dir, Vec3f::up());
         let n_hit = self.pos + rot_y * (look * (hit - self.pos));
-        let n_dir = rot_y * (look * (-self.dir.proj()));
 
         match self.kind {
             RendererKind::Sphere{..} => {
@@ -741,16 +746,18 @@ impl<'a> Iterator for RaytraceIterator<'a> {
 
             // reflect
             self.next_ray = hit.0.ray.reflect(self.rt, &hit.0);
+            let mut n_hit = hit.0.clone();
             let opacity = hit.0.get_opacity();
 
             // 15% chance to reflect for transparent material
             if rand::thread_rng().gen_bool((1.0 - opacity).min(0.85).into()) {
                 if let Some(r) = hit.1.ray.refract(self.rt, &hit.1) {
                     self.next_ray = r;
+                    n_hit = hit.1.clone();
                 }
             }
 
-            return Some((hit.1, out_light))
+            return Some((n_hit, out_light))
         }
 
         None

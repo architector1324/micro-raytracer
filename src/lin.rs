@@ -140,6 +140,10 @@ impl Vec4f {
         }
     }
 
+    pub fn backward() -> Self{
+        -Vec4f::forward()
+    }
+
     pub fn proj(self) -> Vec3f {
         Vec3f {
             x: self.x,
@@ -434,6 +438,19 @@ impl From<[f32; 4]> for Vec4f {
             x: v[1],
             y: v[2],
             z: v[3]
+        }
+    }
+}
+
+impl std::ops::Neg for Vec4f {
+    type Output = Vec4f;
+
+    fn neg(self) -> Self::Output {
+        Vec4f {
+            w: -self.w,
+            x: -self.x,
+            y: -self.y,
+            z: -self.z
         }
     }
 }
