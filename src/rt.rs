@@ -62,14 +62,14 @@ pub struct Frame {
     pub cam: Camera
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Texture {
     pub w: usize,
     pub h: usize,
     pub dat: Option<Vec<Vec3f>>
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Material {
     pub albedo: Vec3f,
     pub rough: f32,
@@ -339,8 +339,29 @@ impl Renderer {
                 Some((t, t))
             },
             RendererKind::Mesh(ref mesh) => {
-                println!("{:?}", mesh);
-                todo!()
+                let mut hits = Vec::new();
+
+                for tri in mesh {
+                    let tri = Renderer {
+                        kind: RendererKind::Triangle{vtx: tri.clone()},
+                        dir: self.dir,
+                        pos: self.pos,
+                        mat: self.mat.clone()
+                    };
+
+                    if let Some(res) = tri.intersect(ray) {
+                        hits.push(res);
+                    }
+                }
+
+                let max = hits.iter().min_by(|(max, _), (t0, _)| max.total_cmp(&t0)).copied();
+                let min = hits.iter().max_by(|(_, min), (_, t1)| min.total_cmp(&t1)).copied();
+
+                if max.is_none() || min.is_none() {
+                    return None;
+                }
+
+                Some((max.unwrap().0, min.unwrap().1))
             }
         }
     }
@@ -389,7 +410,7 @@ impl Renderer {
                 n_dir.cross(e1)
             },
             RendererKind::Mesh(ref mesh) => {
-                todo!()
+                -Vec3f::forward()
             }
         }
     }
