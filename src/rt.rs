@@ -93,7 +93,10 @@ pub enum RendererKind {
     Plane{n: Vec3f},
     Box{sizes: Vec3f},
     Triangle{vtx: (Vec3f, Vec3f, Vec3f)},
-    Mesh(Vec<(Vec3f, Vec3f, Vec3f)>)
+    Mesh {
+        mesh: Vec<(Vec3f, Vec3f, Vec3f)>,
+        aabb: Vec3f
+    }
 }
 
 #[derive(Debug)]
@@ -339,7 +342,11 @@ impl Renderer {
 
                 Some(((t, None), (t, None)))
             },
-            RendererKind::Mesh(ref mesh) => {
+            RendererKind::Mesh{ref mesh, ref aabb} => {
+                if !self.check_aabb(ray, aabb.clone()) {
+                    return None;
+                }
+
                 let mut hits = Vec::new();
 
                 for (idx, tri) in mesh.iter().enumerate() {
@@ -365,6 +372,54 @@ impl Renderer {
                 Some((max.unwrap().0, min.unwrap().1))
             }
         }
+    }
+
+    pub fn gen_aabb(mesh: &Vec<(Vec3f, Vec3f, Vec3f)>) -> Option<Vec3f> {
+        let it = mesh.iter().copied().flat_map(|v| [v.0, v.1, v.2]);
+
+        let x = 2.0 * it.clone().max_by(|max, v| max.x.abs().total_cmp(&v.x.abs()))?.x.abs();
+        let y = 2.0 * it.clone().max_by(|max, v| max.y.abs().total_cmp(&v.y.abs()))?.y.abs();
+        let z = 2.0 * it.max_by(|max, v| max.z.abs().total_cmp(&v.z.abs()))?.z.abs();
+
+        Some(Vec3f{x, y, z})
+    }
+
+    fn check_aabb(&self, ray: &Ray, aabb: Vec3f) -> bool {
+        let rot_y = Mat3f::rotate_y(-self.dir);
+        let look = Mat4f::lookat(-self.dir, Vec3f::up());
+
+        let n_orig = self.pos + rot_y * (look * (ray.orig - self.pos));
+        let n_dir = rot_y * (look * ray.dir);
+        
+        let mut m = n_dir.recip();
+
+        // workaround for zero division
+        if m.x.is_infinite() {
+            m.x = E.recip();
+        }
+
+        if m.y.is_infinite() {
+            m.y = E.recip();
+        }
+
+        if m.z.is_infinite() {
+            m.z = E.recip();
+        }
+
+        let n = (n_orig - self.pos).hadam(m);
+        let k = (0.5 * aabb).hadam(m.abs());
+
+        let a = -n - k;
+        let b = -n + k;
+
+        let t0 = a.x.max(a.y).max(a.z);
+        let t1 = b.x.min(b.y).min(b.z);
+
+        if t0 > t1 || t1 < 0.0 {
+            return false;
+        }
+
+        true
     }
 
     pub fn normal<'a>(&self, hit: &RayHit<'a>) -> Vec3f {
@@ -414,7 +469,7 @@ impl Renderer {
 
                 e0.cross(e1)
             },
-            RendererKind::Mesh(ref mesh) => {
+            RendererKind::Mesh{ref mesh, ..} => {
                 let tri = mesh[hit.idx.unwrap()];
 
                 let e0 = tri.1 - tri.0;
@@ -503,7 +558,7 @@ impl Renderer {
             RendererKind::Triangle{vtx} => {
                 todo!()
             },
-            RendererKind::Mesh(ref mesh) => {
+            RendererKind::Mesh{ref mesh, ..} => {
                 todo!()
             }
         }

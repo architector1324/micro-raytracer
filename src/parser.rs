@@ -1,5 +1,3 @@
-use std::fs::File;
-use std::io::BufReader;
 use std::path::PathBuf;
 use image::EncodableLayout;
 use flate2::read::GzDecoder;
@@ -805,7 +803,12 @@ impl Wrapper<RendererKind> for MeshWrapper {
         let buf = self.to_buffer()?;
 
         if let MeshWrapper::Mesh(mesh) = buf {
-            return Ok(RendererKind::Mesh(mesh))
+            return Ok(
+                RendererKind::Mesh {
+                    aabb: Renderer::gen_aabb(&mesh).ok_or("empty mesh!".to_string())?,
+                    mesh
+                }
+            )
         }
 
         unreachable!()
