@@ -598,16 +598,17 @@ impl ParseFromArgs<LightWrapper> for SceneWrapper {}
 
 impl MeshWrapper {
     pub fn load(name: &str) -> Result<Self, String> {
-        let tmp = BufReader::new(File::open(name).map_err(|e| e.to_string())?);
-        let obj: obj::Obj = obj::load_obj(tmp).map_err(|e| e.to_string())?;
+        let obj = obj::Obj::load(name).map_err(|e| e.to_string())?;
+
+        let polys = &obj.data.objects[0].groups[0].polys;
 
         let mut mesh = Vec::new();
 
-        for idx in obj.indices.chunks(3) {
+        for idx in polys {
             mesh.push((
-                Vec3f::from(obj.vertices[idx[0] as usize].position),
-                Vec3f::from(obj.vertices[idx[1] as usize].position),
-                Vec3f::from(obj.vertices[idx[2] as usize].position),
+                Vec3f::from(obj.data.position[idx.0[0].0 as usize]),
+                Vec3f::from(obj.data.position[idx.0[1].0 as usize]),
+                Vec3f::from(obj.data.position[idx.0[2].0 as usize]),
             ));
         }
 
