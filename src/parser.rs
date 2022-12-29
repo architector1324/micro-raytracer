@@ -805,7 +805,7 @@ impl Wrapper<RendererKind> for MeshWrapper {
         if let MeshWrapper::Mesh(mesh) = buf {
             return Ok(
                 RendererKind::Mesh {
-                    aabb: Renderer::gen_aabb(&mesh).ok_or("empty mesh!".to_string())?,
+                    bvh: Renderer::gen_bvh(&mesh, 3).ok_or("empty mesh!".to_string())?,
                     mesh
                 }
             )

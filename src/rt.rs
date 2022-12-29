@@ -87,6 +87,14 @@ pub struct Material {
     pub emap: Option<Texture>, // emit map
 }
 
+#[derive(Debug, Clone)]
+pub struct BVH {
+    aabb: Vec3f,
+    rel_pos: Vec3f,
+    content: Option<Vec<usize>>,
+    childs: Option<Vec<Option<BVH>>>
+}
+
 #[derive(Debug)]
 pub enum RendererKind {
     Sphere{r: f32},
@@ -95,7 +103,7 @@ pub enum RendererKind {
     Triangle{vtx: (Vec3f, Vec3f, Vec3f)},
     Mesh {
         mesh: Vec<(Vec3f, Vec3f, Vec3f)>,
-        aabb: Vec3f
+        bvh: BVH
     }
 }
 
@@ -238,6 +246,24 @@ impl Texture {
 }
 
 impl Renderer {
+    fn intersect_bvh(&self, ray: &Ray, bvh: &BVH) -> Option<Vec<usize>> {
+        if !self.check_aabb(ray, bvh.aabb, bvh.rel_pos) {
+            return None;
+        }
+
+        if bvh.content.is_some() {
+            return bvh.content.clone();
+        }
+
+        Some(
+            bvh.childs.as_ref().unwrap()
+                .iter()
+                .filter_map(|c| c.as_ref())
+                .filter_map(|c| self.intersect_bvh(ray, c))
+                .flat_map(|v| v).collect()
+        )
+    }
+
     pub fn intersect(&self, ray: &Ray) -> Option<((f32, Option<usize>), (f32, Option<usize>))> {
         let rot_y = Mat3f::rotate_y(-self.dir);
         let look = Mat4f::lookat(-self.dir, Vec3f::up());
@@ -342,16 +368,22 @@ impl Renderer {
 
                 Some(((t, None), (t, None)))
             },
-            RendererKind::Mesh{ref mesh, ref aabb} => {
-                if !self.check_aabb(ray, aabb.clone()) {
+            RendererKind::Mesh{ref mesh, ref bvh} => {
+                // get indexes
+                let bvh_idx = self.intersect_bvh(ray, bvh);
+                if bvh_idx.is_none() {
                     return None;
                 }
 
+                // check intersections
                 let mut hits = Vec::new();
 
-                for (idx, tri) in mesh.iter().enumerate() {
+                let mut bvh_idx = bvh_idx.unwrap();
+                bvh_idx.dedup();
+
+                for idx in bvh_idx {
                     let tri = Renderer {
-                        kind: RendererKind::Triangle{vtx: tri.clone()},
+                        kind: RendererKind::Triangle{vtx: mesh[idx].clone()},
                         dir: self.dir,
                         pos: self.pos,
                         mat: self.mat.clone()
@@ -374,21 +406,116 @@ impl Renderer {
         }
     }
 
-    pub fn gen_aabb(mesh: &Vec<(Vec3f, Vec3f, Vec3f)>) -> Option<Vec3f> {
+    pub fn gen_bvh(mesh: &Vec<(Vec3f, Vec3f, Vec3f)>, deep: usize) -> Option<BVH> {
+        // helpers
+        let gen_pos = || -> [Vec3f; 8] {
+            [
+                Vec3f::from([1.0, 1.0, 1.0]),
+                Vec3f::from([-1.0, 1.0, 1.0]),
+                Vec3f::from([-1.0, -1.0, 1.0]),
+                Vec3f::from([1.0, -1.0, 1.0]),
+                Vec3f::from([1.0, 1.0, -1.0]),
+                Vec3f::from([-1.0, 1.0, -1.0]),
+                Vec3f::from([-1.0, -1.0, -1.0]),
+                Vec3f::from([1.0, -1.0, -1.0]),
+            ]
+        };
+
+        let tri_in_aabb = |tri: &(Vec3f, Vec3f, Vec3f), aabb: Vec3f, rel_pos: Vec3f| -> bool {
+            let v0 = rel_pos + 0.5 * aabb;
+            let v1 = rel_pos - 0.5 * aabb;
+
+            let vtx_in_aabb = |vtx: Vec3f| {
+                if vtx.x > v0.x || vtx.y > v0.y || vtx.z > v0.z {
+                    return false;
+                }
+    
+                if vtx.x < v1.x || vtx.y < v1.y || vtx.z < v1.z {
+                    return false;
+                }
+
+                true
+            };
+
+            if vtx_in_aabb(tri.0) || vtx_in_aabb(tri.1) || vtx_in_aabb(tri.2) {
+                return true;
+            }
+
+            false
+        };
+
+        fn construct(aabb: Vec3f, rel_pos: Vec3f, mesh: &Vec<(Vec3f, Vec3f, Vec3f)>, d: usize, deep: usize, gen_pos: fn() -> [Vec3f; 8], check_tri: fn(tri: &(Vec3f, Vec3f, Vec3f), aabb: Vec3f, rel_pos: Vec3f) -> bool) -> Option<BVH> {
+            let mut child = BVH {
+                aabb: aabb,
+                rel_pos,
+                content: None,
+                childs: None
+            };
+
+            // get content
+            if d >= deep {
+                let tmp = mesh.iter()
+                    .enumerate()
+                    .filter_map(|(idx, tri)| {
+                        if check_tri(tri, child.aabb, child.rel_pos) {
+                            return Some(idx)
+                        }
+                        None
+                    })
+                    .collect::<Vec<_>>();
+    
+                if tmp.len() != 0 {
+                    child.content = Some(tmp);
+                }
+
+                return Some(child);
+            }
+
+            // get childs
+            let tmp = gen_pos().iter()
+                .copied()
+                .map(|v| construct(0.5 * child.aabb, child.rel_pos + child.aabb.hadam(v * 0.25), mesh, d + 1, deep, gen_pos, check_tri))
+                .filter(|c| c.is_some())
+                .filter(|c| {
+                    let c = c.as_ref().unwrap();
+                    c.content.is_some() || c.childs.is_some()
+                })
+                .collect::<Vec<_>>();
+            
+            if tmp.len() != 0 {
+                child.childs = Some(tmp);
+            }
+
+            Some(child)
+        }
+
+        // construct bvh
         let it = mesh.iter().copied().flat_map(|v| [v.0, v.1, v.2]);
 
-        let x = 2.0 * it.clone().max_by(|max, v| max.x.abs().total_cmp(&v.x.abs()))?.x.abs();
-        let y = 2.0 * it.clone().max_by(|max, v| max.y.abs().total_cmp(&v.y.abs()))?.y.abs();
-        let z = 2.0 * it.max_by(|max, v| max.z.abs().total_cmp(&v.z.abs()))?.z.abs();
+        let root = construct(
+            Vec3f::from([
+                2.0 * it.clone().max_by(|max, v| max.x.abs().total_cmp(&v.x.abs()))?.x.abs(),
+                2.0 * it.clone().max_by(|max, v| max.y.abs().total_cmp(&v.y.abs()))?.y.abs(),
+                2.0 * it.max_by(|max, v| max.z.abs().total_cmp(&v.z.abs()))?.z.abs(),
+            ]),
+            Vec3f::zero(),
+            mesh,
+            0,
+            deep,
+            gen_pos,
+            tri_in_aabb
+        );
 
-        Some(Vec3f{x, y, z})
+        root
     }
 
-    fn check_aabb(&self, ray: &Ray, aabb: Vec3f) -> bool {
+    fn check_aabb(&self, ray: &Ray, aabb: Vec3f, rel_pos: Vec3f) -> bool {
         let rot_y = Mat3f::rotate_y(-self.dir);
         let look = Mat4f::lookat(-self.dir, Vec3f::up());
 
-        let n_orig = self.pos + rot_y * (look * (ray.orig - self.pos));
+        let pos = self.pos + rel_pos;
+
+        let n_orig = pos + rot_y * (look * (ray.orig - pos));
         let n_dir = rot_y * (look * ray.dir);
         
         let mut m = n_dir.recip();
@@ -406,7 +533,7 @@ impl Renderer {
             m.z = E.recip();
         }
 
-        let n = (n_orig - self.pos).hadam(m);
+        let n = (n_orig - pos).hadam(m);
         let k = (0.5 * aabb).hadam(m.abs());
 
         let a = -n - k;
