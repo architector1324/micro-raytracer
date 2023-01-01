@@ -40,6 +40,7 @@ pub struct Ray {
 #[derive(Debug, Clone)]
 pub struct RayHit<'a> {
     pub obj: &'a Renderer,
+    pub inst: &'a RendererInstance,
     pub idx: Option<usize>,
     pub ray: Ray,
     pub norm: Vec3f
@@ -108,11 +109,16 @@ pub enum RendererKind {
 }
 
 #[derive(Debug)]
+pub struct RendererInstance {
+    pub pos: Vec3f,
+    pub dir: Vec4f
+}
+
+#[derive(Debug)]
 pub struct Renderer {
     pub kind: RendererKind,
     pub mat: Material,
-    pub pos: Vec3f,
-    pub dir: Vec4f
+    pub instance: Vec<RendererInstance>
 }
 
 #[derive(Debug)]
@@ -209,27 +215,27 @@ impl Ray {
 
 impl <'a> RayHit<'a> {
     pub fn get_color(&self) -> Vec3f {
-        self.obj.get_color(Some((&self.ray).into()))
+        self.obj.get_color(self.inst, Some((&self.ray).into()))
     }
 
     pub fn get_rough(&self) -> f32 {
-        self.obj.get_rough(Some((&self.ray).into()))
+        self.obj.get_rough(self.inst, Some((&self.ray).into()))
     }
 
     pub fn get_metal(&self) -> f32 {
-        self.obj.get_metal(Some((&self.ray).into()))
+        self.obj.get_metal(self.inst, Some((&self.ray).into()))
     }
 
     pub fn get_glass(&self) -> f32 {
-        self.obj.get_glass(Some((&self.ray).into()))
+        self.obj.get_glass(self.inst, Some((&self.ray).into()))
     }
 
     pub fn get_opacity(&self) -> f32 {
-        self.obj.get_opacity(Some((&self.ray).into()))
+        self.obj.get_opacity(self.inst, Some((&self.ray).into()))
     }
 
     pub fn get_emit(&self) -> f32 {
-        self.obj.get_emit(Some((&self.ray).into()))
+        self.obj.get_emit(self.inst, Some((&self.ray).into()))
     }
 }
 
@@ -245,9 +251,10 @@ impl Texture {
     }
 }
 
+
 impl Renderer {
-    fn intersect_bvh(&self, ray: &Ray, bvh: &BVH) -> Option<Vec<usize>> {
-        if !self.check_aabb(ray, bvh.aabb, bvh.rel_pos) {
+    fn intersect_bvh(&self, inst: &RendererInstance, ray: &Ray, bvh: &BVH) -> Option<Vec<usize>> {
+        if !self.check_aabb(inst, ray, bvh.aabb, bvh.rel_pos) {
             return None;
         }
 
@@ -259,21 +266,21 @@ impl Renderer {
             bvh.childs.as_ref().unwrap()
                 .iter()
                 .filter_map(|c| c.as_ref())
-                .filter_map(|c| self.intersect_bvh(ray, c))
+                .filter_map(|c| self.intersect_bvh(inst, ray, c))
                 .flat_map(|v| v).collect()
         )
     }
 
-    pub fn intersect(&self, ray: &Ray) -> Option<((f32, Option<usize>), (f32, Option<usize>))> {
-        let rot_y = Mat3f::rotate_y(-self.dir);
-        let look = Mat4f::lookat(-self.dir, Vec3f::up());
+    pub fn intersect(&self, inst: &RendererInstance, ray: &Ray) -> Option<((f32, Option<usize>), (f32, Option<usize>))> {
+        let rot_y = Mat3f::rotate_y(-inst.dir);
+        let look = Mat4f::lookat(-inst.dir, Vec3f::up());
 
-        let n_orig = self.pos + rot_y * (look * (ray.orig - self.pos));
+        let n_orig = inst.pos + rot_y * (look * (ray.orig - inst.pos));
         let n_dir = rot_y * (look * ray.dir);
 
         match self.kind {
             RendererKind::Sphere{r} => {
-                let o = n_orig - self.pos;
+                let o = n_orig - inst.pos;
 
                 let a = n_dir * n_dir;
                 let b = 2.0 * (o * n_dir);
@@ -295,7 +302,7 @@ impl Renderer {
                 None
             },
             RendererKind::Plane{n} => {
-                let d = -n.norm() * self.pos;
+                let d = -n.norm() * inst.pos;
                 let t = -(n_orig * n.norm() + d) / (n_dir * n.norm());
 
                 if t > 0.0 {
@@ -319,7 +326,7 @@ impl Renderer {
                     m.z = E.recip();
                 }
 
-                let n = (n_orig - self.pos).hadam(m);
+                let n = (n_orig - inst.pos).hadam(m);
                 let k = (0.5 * sizes).hadam(m.abs());
 
                 let a = -n - k;
@@ -346,7 +353,7 @@ impl Renderer {
                 }
 
                 let inv_d = d.recip();
-                let t = n_orig - (vtx.0 + self.pos);
+                let t = n_orig - (vtx.0 + inst.pos);
                 let u = (t * p) * inv_d;
 
                 if u < 0.0 || u > 1.0 {
@@ -370,7 +377,7 @@ impl Renderer {
             },
             RendererKind::Mesh{ref mesh, ref bvh} => {
                 // get indexes
-                let bvh_idx = self.intersect_bvh(ray, bvh);
+                let bvh_idx = self.intersect_bvh(inst, ray, bvh);
                 if bvh_idx.is_none() {
                     return None;
                 }
@@ -384,12 +391,11 @@ impl Renderer {
                 for idx in bvh_idx {
                     let tri = Renderer {
                         kind: RendererKind::Triangle{vtx: mesh[idx].clone()},
-                        dir: self.dir,
-                        pos: self.pos,
+                        instance: vec![RendererInstance{pos: inst.pos, dir: inst.dir}],
                         mat: self.mat.clone()
                     };
 
-                    if let Some(((t0, _), (t1, _))) = tri.intersect(ray) {
+                    if let Some(((t0, _), (t1, _))) = tri.intersect(inst, ray) {
                         hits.push(((t0, Some(idx)), (t1, Some(idx))));
                     }
                 }
@@ -509,11 +515,11 @@ impl Renderer {
         root
     }
 
-    fn check_aabb(&self, ray: &Ray, aabb: Vec3f, rel_pos: Vec3f) -> bool {
-        let rot_y = Mat3f::rotate_y(-self.dir);
-        let look = Mat4f::lookat(-self.dir, Vec3f::up());
+    fn check_aabb(&self, inst: &RendererInstance, ray: &Ray, aabb: Vec3f, rel_pos: Vec3f) -> bool {
+        let rot_y = Mat3f::rotate_y(-inst.dir);
+        let look = Mat4f::lookat(-inst.dir, Vec3f::up());
 
-        let pos = self.pos + rel_pos;
+        let pos = inst.pos + rel_pos;
 
         let n_orig = pos + rot_y * (look * (ray.orig - pos));
         let n_dir = rot_y * (look * ray.dir);
@@ -549,19 +555,19 @@ impl Renderer {
         true
     }
 
-    pub fn normal<'a>(&self, hit: &RayHit<'a>) -> Vec3f {
+    pub fn normal<'a>(&self, inst: &RendererInstance, hit: &RayHit<'a>) -> Vec3f {
         let hit_p = Vec3f::from(&hit.ray);
 
-        let rot_y = Mat3f::rotate_y(-self.dir);
-        let look = Mat4f::lookat(-self.dir, Vec3f::up());
+        let rot_y = Mat3f::rotate_y(-inst.dir);
+        let look = Mat4f::lookat(-inst.dir, Vec3f::up());
 
-        let n_hit = self.pos + rot_y * (look * (hit_p - self.pos));
+        let n_hit = inst.pos + rot_y * (look * (hit_p - inst.pos));
 
         let n = match self.kind {
-            RendererKind::Sphere{..} => n_hit - self.pos,
+            RendererKind::Sphere{..} => n_hit - inst.pos,
             RendererKind::Plane{n} => n,
             RendererKind::Box{sizes} => {
-                let p = (n_hit - self.pos).hadam(sizes.recip() * 2.0);
+                let p = (n_hit - inst.pos).hadam(sizes.recip() * 2.0);
 
                 let pos_r = 1.0-E..1.0+E;
                 let neg_r = -1.0-E..-1.0+E;
@@ -609,14 +615,14 @@ impl Renderer {
         (rot_y * (look * n)).norm()
     }
 
-    pub fn to_uv(&self, hit: Vec3f) -> Vec2f {
-        let rot_y = Mat3f::rotate_y(-self.dir);
-        let look = Mat4f::lookat(-self.dir, Vec3f::up());
-        let n_hit = self.pos + rot_y * (look * (hit - self.pos));
+    pub fn to_uv(&self, inst: &RendererInstance, hit: Vec3f) -> Vec2f {
+        let rot_y = Mat3f::rotate_y(-inst.dir);
+        let look = Mat4f::lookat(-inst.dir, Vec3f::up());
+        let n_hit = inst.pos + rot_y * (look * (hit - inst.pos));
 
         match self.kind {
             RendererKind::Sphere{..} => {
-                let v = (n_hit - self.pos).norm();
+                let v = (n_hit - inst.pos).norm();
                 Vec2f {
                     x: 0.5 + 0.5 * v.x.atan2(-v.y) / PI,
                     y: 0.5 - 0.5 * v.z
@@ -636,7 +642,7 @@ impl Renderer {
                 Vec2f{x, y}
             },
             RendererKind::Box{sizes} => {
-                let p = (n_hit - self.pos).hadam(sizes.recip() * 2.0);
+                let p = (n_hit - inst.pos).hadam(sizes.recip() * 2.0);
 
                 let pos_r = 1.0-E..1.0+E;
                 let neg_r = -1.0-E..-1.0+E;
@@ -691,55 +697,55 @@ impl Renderer {
         }
     }
 
-    pub fn get_color(&self, v: Option<Vec3f>) -> Vec3f {
+    pub fn get_color(&self, inst: &RendererInstance, v: Option<Vec3f>) -> Vec3f {
         if let Some(tex) = &self.mat.tex {
             if let Some(v) = v {
-                return self.mat.albedo.hadam(tex.get_color(self.to_uv(v)));
+                return self.mat.albedo.hadam(tex.get_color(self.to_uv(inst, v)));
             }
         }
         self.mat.albedo
     }
 
-    pub fn get_rough(&self, v: Option<Vec3f>) -> f32 {
+    pub fn get_rough(&self, inst: &RendererInstance, v: Option<Vec3f>) -> f32 {
         if let Some(tex) = &self.mat.rmap {
             if let Some(v) = v {
-                return tex.get_color(self.to_uv(v)).x
+                return tex.get_color(self.to_uv(inst, v)).x
             }
         }
         self.mat.rough
     }
 
-    pub fn get_metal(&self, v: Option<Vec3f>) -> f32 {
+    pub fn get_metal(&self, inst: &RendererInstance, v: Option<Vec3f>) -> f32 {
         if let Some(tex) = &self.mat.mmap {
             if let Some(v) = v {
-                return tex.get_color(self.to_uv(v)).x;
+                return tex.get_color(self.to_uv(inst, v)).x;
             }
         }
         self.mat.metal
     }
 
-    pub fn get_glass(&self, v: Option<Vec3f>) -> f32 {
+    pub fn get_glass(&self, inst: &RendererInstance, v: Option<Vec3f>) -> f32 {
         if let Some(tex) = &self.mat.gmap {
             if let Some(v) = v {
-                return tex.get_color(self.to_uv(v)).x;
+                return tex.get_color(self.to_uv(inst, v)).x;
             }
         }
         self.mat.glass
     }
 
-    pub fn get_opacity(&self, v: Option<Vec3f>) -> f32 {
+    pub fn get_opacity(&self, inst: &RendererInstance, v: Option<Vec3f>) -> f32 {
         if let Some(tex) = &self.mat.omap {
             if let Some(v) = v {
-                return tex.get_color(self.to_uv(v)).x;
+                return tex.get_color(self.to_uv(inst, v)).x;
             }
         }
         self.mat.opacity
     }
 
-    pub fn get_emit(&self, v: Option<Vec3f>) -> f32 {
+    pub fn get_emit(&self, inst: &RendererInstance, v: Option<Vec3f>) -> f32 {
         if let Some(tex) = &self.mat.emap {
             if let Some(v) = v {
-                return tex.get_color(self.to_uv(v)).x;
+                return tex.get_color(self.to_uv(inst, v)).x;
             }
         }
         self.mat.emit
@@ -749,30 +755,32 @@ impl Renderer {
 impl RayTracer {
     fn closest_hit<'a>(scene: &'a Scene, ray: &Ray) -> Option<(RayHit<'a>, RayHit<'a>)> {
         let hits = scene.renderer.as_deref()?.iter()
-            .map(|obj| (obj, obj.intersect(&ray)))
-            .filter_map(|(obj, p)| Some((obj, p?.0, p?.1)));
+            .flat_map(|obj| std::iter::repeat(obj).zip(obj.instance.iter().map(|inst| (inst, obj.intersect(inst, &ray)))))
+            .filter_map(|(obj, (inst, p))| Some((obj, inst, p?.0, p?.1)));
 
-        hits.min_by(|(_, (max, _), _), (_, (p, _), _)| max.total_cmp(&p)).and_then(|v| {
-            let r0 = Ray {t: v.1.0, ..ray.clone()};
-            let r1 = Ray {t: v.2.0, ..ray.clone()};
+        hits.min_by(|(_, _, (max, _), _), (_, _, (p, _), _)| max.total_cmp(&p)).and_then(|v| {
+            let r0 = Ray {t: v.2.0, ..ray.clone()};
+            let r1 = Ray {t: v.3.0, ..ray.clone()};
 
             let mut hit0 = RayHit {
                 obj: v.0,
-                idx: v.1.1,
+                inst: v.1,
+                idx: v.2.1,
                 norm: Vec3f::zero(),
                 ray: r0
             };
 
-            hit0.norm = v.0.normal(&hit0);
+            hit0.norm = v.0.normal(&v.1, &hit0);
 
             let mut hit1 = RayHit {
                 obj: v.0,
-                idx: v.2.1,
+                inst: v.1,
+                idx: v.3.1,
                 norm: Vec3f::zero(),
                 ray: r1
             };
 
-            hit1.norm = v.0.normal(&hit1);
+            hit1.norm = v.0.normal(&v.1, &hit1);
 
             Some((hit0, hit1))
         })

@@ -6,7 +6,7 @@ use std::io::prelude::{Read, Write};
 use serde::{Serialize, Deserialize};
 
 use crate::lin::{Vec3f, Vec4f};
-use crate::rt::{Render, RayTracer, Frame, Scene, Renderer, RendererKind, Light, LightKind, Camera, Material, Texture, Sky};
+use crate::rt::{Render, RayTracer, Frame, Scene, Renderer, RendererKind, Light, LightKind, Camera, Material, Texture, Sky, RendererInstance};
 
 
 pub trait Wrapper<T> {
@@ -137,10 +137,13 @@ pub struct RendererWrapper {
     pub mat: MaterialWrapper,
 
     #[serde(default)]
-    pub pos: Vec3f,
+    pub pos: Option<Vec3f>,
 
-    #[serde(default = "Vec4f::backward")]
-    pub dir: Vec4f,
+    #[serde(default)]
+    pub dir: Option<Vec4f>,
+
+    #[serde(default)]
+    pub inst: Option<Vec<(Vec3f, Vec4f)>>,
 
     #[serde(default)]
     pub name: Option<String>
@@ -426,8 +429,9 @@ impl FromArgs for RendererWrapper {
                 },
                 _ => return Err(format!("`{}` type is unxpected!", t))
             },
-            pos: Vec3f::default(),
-            dir: Vec4f::backward(),
+            pos: Some(Vec3f::default()),
+            dir: Some(Vec4f::backward()),
+            inst: None,
             mat: MaterialWrapper::default(),
             name: None
         };
@@ -504,8 +508,8 @@ impl FromArgs for RendererWrapper {
             // common params
             match param.as_str() {
                 "name:" => obj.name = it.next().cloned(),
-                "pos:" => obj.pos = Vec3f::parse(&mut it)?,
-                "dir:" => obj.dir = Vec4f::parse(&mut it)?,
+                "pos:" => obj.pos = Some(Vec3f::parse(&mut it)?),
+                "dir:" => obj.dir = Some(Vec4f::parse(&mut it)?),
                 "albedo:" => obj.mat.albedo = ColorWrapper::parse(&mut it)?,
                 "rough:" => obj.mat.rough = <f32>::parse(&mut it)?,
                 "metal:" => obj.mat.metal = <f32>::parse(&mut it)?,
@@ -828,12 +832,26 @@ impl Wrapper<RendererKind> for RendererKindWrapper {
 }
 
 impl Wrapper<Renderer> for RendererWrapper {
-    fn unwrap(self) -> Result<Renderer, String> {
+    fn unwrap(mut self) -> Result<Renderer, String> {
+        let instance = 
+        if let Some(ref mut instance) = self.inst {
+            if self.pos.is_some() || self.dir.is_some() {
+                instance.insert(0, (self.pos.unwrap_or(Vec3f::zero()), self.dir.unwrap_or(Vec4f::backward())));
+            }
+            instance.iter().cloned().map(|(pos, dir)| RendererInstance{pos, dir}).collect()
+        } else {
+            vec![
+                RendererInstance{
+                    pos: self.pos.unwrap_or(Vec3f::zero()),
+                    dir: self.dir.unwrap_or(Vec4f::backward())
+                }
+            ]
+        };
+
         Ok(Renderer{
             kind: self.kind.unwrap()?,
             mat: self.mat.unwrap()?,
-            pos: self.pos,
-            dir: self.dir
+            instance: instance
         })
     }
 }
