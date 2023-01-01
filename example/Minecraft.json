@@ -21,7 +21,15 @@
                     [[0, 6, 0], [0, 0, -1, 0]],
                     [[0, 6, 1], [0, 0, -1, 0]],
                     [[0, 6, 2], [0, 0, -1, 0]],
-                    [[0, 6, 3], [0, 0, -1, 0]]
+                    [[0, 6, 3], [0, 0, -1, 0]],
+                    [[4, 2, 0], [0, 0, -1, 0]],
+                    [[4, 2, 1], [0, 0, -1, 0]],
+                    [[4, 2, 2], [0, 0, -1, 0]],
+                    [[4, 2, 3], [0, 0, -1, 0]],
+                    [[4, 6, 0], [0, 0, -1, 0]],
+                    [[4, 6, 1], [0, 0, -1, 0]],
+                    [[4, 6, 2], [0, 0, -1, 0]],
+                    [[4, 6, 3], [0, 0, -1, 0]]
                 ],
                 "mat": {
                     "rough": 1,
@@ -42,8 +50,37 @@
                     [[0, 5, 0], [0, 0, -1, 0]],
                     [[0, 5, 1], [0, 0, -1, 0]],
                     [[0, 5, 2], [0, 0, -1, 0]],
-                    [[0, 5, 3], [0, 0, -1, 0]]
-
+                    [[0, 5, 3], [0, 0, -1, 0]],
+                    [[4, 3, 0], [0, 0, -1, 0]],
+                    [[4, 3, 1], [0, 0, -1, 0]],
+                    [[4, 3, 2], [0, 0, -1, 0]],
+                    [[4, 3, 3], [0, 0, -1, 0]],
+                    [[4, 4, 0], [0, 0, -1, 0]],
+                    [[4, 4, 3], [0, 0, -1, 0]],
+                    [[4, 5, 0], [0, 0, -1, 0]],
+                    [[4, 5, 1], [0, 0, -1, 0]],
+                    [[4, 5, 2], [0, 0, -1, 0]],
+                    [[4, 5, 3], [0, 0, -1, 0]],
+                    [[1, 2, 0], [0, 0, -1, 0]],
+                    [[2, 2, 0], [0, 0, -1, 0]],
+                    [[3, 2, 0], [0, 0, -1, 0]],
+                    [[1, 2, 1], [0, 0, -1, 0]],
+                    [[3, 2, 1], [0, 0, -1, 0]],
+                    [[1, 2, 2], [0, 0, -1, 0]],
+                    [[3, 2, 2], [0, 0, -1, 0]],
+                    [[1, 2, 3], [0, 0, -1, 0]],
+                    [[2, 2, 3], [0, 0, -1, 0]],
+                    [[3, 2, 3], [0, 0, -1, 0]],
+                    [[1, 6, 0], [0, 0, -1, 0]],
+                    [[2, 6, 0], [0, 0, -1, 0]],
+                    [[3, 6, 0], [0, 0, -1, 0]],
+                    [[1, 6, 1], [0, 0, -1, 0]],
+                    [[3, 6, 1], [0, 0, -1, 0]],
+                    [[1, 6, 2], [0, 0, -1, 0]],
+                    [[3, 6, 2], [0, 0, -1, 0]],
+                    [[1, 6, 3], [0, 0, -1, 0]],
+                    [[2, 6, 3], [0, 0, -1, 0]],
+                    [[3, 6, 3], [0, 0, -1, 0]]
                 ],
                 "mat": {
                     "rough": 1,
@@ -54,8 +91,12 @@
                 "name": "mossy_cobblestone",
                 "type": "box",
                 "sizes": [1, 1, 1],
-                "pos": [0, 4, 1],
-                "dir": [0, 0, -1, 0],
+                "inst": [
+                    [[0, 4, 1], [0, 0, -1, 0]],
+                    [[4, 4, 1], [0, 0, -1, 0]],
+                    [[2, 2, 1], [0, 0, -1, 0]],
+                    [[2, 6, 1], [0, 0, -1, 0]]
+                ],
                 "mat": {
                     "rough": 1,
                     "tex":"H4sIAAAAAAAC/+2dW27bMBBF96JvodDbkrcS5KNAP7qAAv0ouvfqkbQoXJe0eTkhqRMggK7DWJRwZsAZUTM/qu/VdRrq6mt1Hea6+vL5W3V9eWk+NfXb72tdpOrnoW/7S79+MFyGsVnm9agbh6Vpl/kY0bXjNK/3Zj2chkszLtuIrh+7ZWj3EdP2b8024ObI6+/HV3XbFLpn5+AxwnmW4XLcjPXzcWo2sX/d8XNMdfh9AeNxwqn+c27fGzo3/dK1+3/eHu5DxuOc036eddbt9iXvH+4jLts8+mWbyT8OvW67+1pKhx+VufMKdk0eZuS2RfeIjLyT5GIUHm6faDeOf9+S90PPL8FWUGkvv5yW4nJhbiNwLgTclua2ec3KyDnC7SYVF6MYIfFwWAoqc/9ltRhQRJEeix/nWTQX47HGcvlKiUcWOEKsBZVLFHl76G2xHp7QZFXhMxG3q7Ty604fpRihWFdiL6iUlUcmyyOIU+SYbALSx9ztHb8ePlVJQk3gnkiFofJW4XkuRdAUPotkglnFYtIomHXddawElbIyekaYSlZa8TTAJjsleYgoiXQxFlTKyui5mdUeK8FSUBG42eSmNMEwjyNRBaXyn95n5TZZD4MM3+rgYY6S1Y3imafEIZucBVtB5R1JeiXHLXZa2QSskhjPKuMmWA+SCkOV7cBsXuaxWXBowlnFhnpF6i/0RS6yYCgCSIlP0GThbZJtmqtRJNl5qwiF0qxbFAlyxWJQ4qFsEmVGz1B4swhFHCnZiSpxDJq1WjouyibYJJuPIpzUvM/jHpLMnlNNsiuREjoKL4e1lB5sUUHrtBW0gAM4gAM4gAM4lHBQ+I7Cd4FzhRAIgRAIgRAIifhmJOUrT1y+Ej7gAz7gAz7g44P4oPxsnF1q2ZSfhREYgREYgREYic4IpaQpJf2QcUIJlEAJlEAJlMSjhOLwNcXhA3ctAQiAAAiAAAiAPHMW+jvQ3yFeYSnYgA3YgA3YgA3TjcX0ZMm3JwuIgAiIgAiIgEhURGiuFCMrVVhzJSABEiABEiABEgNI6JX2+GLwXL3SIARCIARCIARC4p2Fjod0PAx8kAcgAAIgAAIgABIJEJqWPlyCtpimpdABHdABHdABHea7j2k3/Phyr7B2w1ACJVACJVACJUaU0ECcBuLB+VAYgREYgREYgZHYKxZFWRjNRCTr2nQQsEm1GW0kAhIgARIgARIgib+zWVPu1j0kmdow6TRREHRhTsXVwAiMwAiMwAiM/I+Rpn77LVQprCR0R48R2qk0q07FPNzXUjr8qMydV7Br8jAjo92oqXgnTXFXm+pe7i/BVlBpL79oxU0r7vtTxVJQmfsv2vfG2SOSTfterAWVSxRJs0+afZ4zEYzKW9EpsKZTIKkwVK6KrmN0Hbt317ESVMqKZkU0K2L5hcpY0d0kRuBWWHcTzAWVSyqfvgiylWlBfRGwFVTekSRF1U9dVB1TQeXtwCjNfN7SzNgJqvgAkkKudVN0IVfsBZW0F6P4I8UfSeWjyk6EUS0ujovKp1oc5oLKO5ykwhQVprCWXNXrz194pt6b4yABAA=="
