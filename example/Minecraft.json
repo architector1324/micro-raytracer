@@ -18,6 +18,8 @@
                     [[0, 2, 1], [0, 0, -1, 0]],
                     [[0, 2, 2], [0, 0, -1, 0]],
                     [[0, 2, 3], [0, 0, -1, 0]],
+                    [[0, 3, 2], [0, 0, -1, 0]],
+                    [[0, 5, 2], [0, 0, -1, 0]],
                     [[0, 6, 0], [0, 0, -1, 0]],
                     [[0, 6, 1], [0, 0, -1, 0]],
                     [[0, 6, 2], [0, 0, -1, 0]],
@@ -26,6 +28,8 @@
                     [[4, 2, 1], [0, 0, -1, 0]],
                     [[4, 2, 2], [0, 0, -1, 0]],
                     [[4, 2, 3], [0, 0, -1, 0]],
+                    [[4, 3, 2], [0, 0, -1, 0]],
+                    [[4, 5, 2], [0, 0, -1, 0]],
                     [[4, 6, 0], [0, 0, -1, 0]],
                     [[4, 6, 1], [0, 0, -1, 0]],
                     [[4, 6, 2], [0, 0, -1, 0]],
@@ -43,23 +47,19 @@
                 "inst": [
                     [[0, 3, 0], [0, 0, -1, 0]],
                     [[0, 3, 1], [0, 0, -1, 0]],
-                    [[0, 3, 2], [0, 0, -1, 0]],
                     [[0, 3, 3], [0, 0, -1, 0]],
                     [[0, 4, 0], [0, 0, -1, 0]],
                     [[0, 4, 3], [0, 0, -1, 0]],
                     [[0, 5, 0], [0, 0, -1, 0]],
                     [[0, 5, 1], [0, 0, -1, 0]],
-                    [[0, 5, 2], [0, 0, -1, 0]],
                     [[0, 5, 3], [0, 0, -1, 0]],
                     [[4, 3, 0], [0, 0, -1, 0]],
                     [[4, 3, 1], [0, 0, -1, 0]],
-                    [[4, 3, 2], [0, 0, -1, 0]],
                     [[4, 3, 3], [0, 0, -1, 0]],
                     [[4, 4, 0], [0, 0, -1, 0]],
                     [[4, 4, 3], [0, 0, -1, 0]],
                     [[4, 5, 0], [0, 0, -1, 0]],
                     [[4, 5, 1], [0, 0, -1, 0]],
-                    [[4, 5, 2], [0, 0, -1, 0]],
                     [[4, 5, 3], [0, 0, -1, 0]],
                     [[1, 2, 0], [0, 0, -1, 0]],
                     [[2, 2, 0], [0, 0, -1, 0]],
@@ -94,7 +94,6 @@
                 "inst": [
                     [[0, 4, 1], [0, 0, -1, 0]],
                     [[4, 4, 1], [0, 0, -1, 0]],
-                    [[2, 2, 1], [0, 0, -1, 0]],
                     [[2, 6, 1], [0, 0, -1, 0]]
                 ],
                 "mat": {
@@ -103,10 +102,75 @@
                 }
             },
             {
+                "name": "oak_stairs_bottom",
+                "type": "box",
+                "sizes": [1, 1, 0.5],
+                "inst": [
+                    [[2, 1, -0.25], [0, 0, -1, 0]],
+                    [[0, 1, 3.75], [0, 0, -1, 0]],
+                    [[1, 1, 3.75], [0, 0, -1, 0]],
+                    [[2, 1, 3.75], [0, 0, -1, 0]],
+                    [[3, 1, 3.75], [0, 0, -1, 0]],
+                    [[4, 1, 3.75], [0, 0, -1, 0]],
+                    [[0, 7, 3.75], [0, 0, -1, 0]],
+                    [[1, 7, 3.75], [0, 0, -1, 0]],
+                    [[2, 7, 3.75], [0, 0, -1, 0]],
+                    [[3, 7, 3.75], [0, 0, -1, 0]],
+                    [[4, 7, 3.75], [0, 0, -1, 0]]
+                ],
+                "mat": {
+                    "rough": 1,
+                    "tex": "H4sIAAAAAAAC/+3dTW7bMBCG4bt4bRT6teRcJciiQBc9QIEuit69kp1FgS5kxAw7Iz0FAvhzJorFvMOSn4bkr9PP08tlOJ++n16G+Xz69vXH6eX1tfnSnN+/3s67VFPXjpd5ufPmyzg3/bXrllf91I3DtelvEct3u2kY14BLM81Dv8b293/Dg9eY7j+5vH25ha6v+uWNtp8CBRzlNsZ57vpx/cFhfbO9XpaX3f3lvFPOqWP1WiX6te2I7Uy6LN/vrrd8HdvpMkzteo01spnLda9BmqPI59hssK0AaUJFVnkyvkiv8XQ+FwgI0rcZeFG51TbBw3VolyQc/5qWrCG31OgeDtn+PWU+yZqm7TitIe2aqmtwe0/Z7tGIIjdc5vdUup3Ni0gYKvn8cctm2Rx0RPCCQnzIKlPP7Tvd/BjSgzJvLDGje/4SVYy1KBPxEn8UaUKF7rwqmDiVRhoFngrksfQruHOShIqs4phEcTyvOL5ZmFaTMNTOPa8gXk+OMqwQzpqxF6U8NYuJE6MUosYlnvf/5AgVuudK8lwsSflVjLYw4qK4XSWsnUwFXnXut1odWYEI6UKlHnwV+J++yoLD58cbOarMKrS27KAiq/0swIsxEwuzAKpAhCyhkvddWeq/nnem9/OsQGkXdXSzK44rU8dUq2W75SlUky7JzSBbXNni6gOjNFSgAhWoQAUqUIEKVKACFahABSr+LxU2tz3s5rbgAAc4wAEOcIADHOAABzjAAQ5w7K5M3DkYRz0HAxvYwAY2sIENbGADG9jABjawgY0sbDgrz1l5D1wEJjCBCUxgAhOYwAQmMIEJTGACk0Ni4nBuh3N/xCQFBShAAQpQgAIUoAAFKEABClCA4jOgqLTOJsSBnVUWUO3qKFdwgAMc4AAHOMABDnCAAxzgAAc4ksGR5ei2KhvF5EnZFCfEQQMa0IAGNKABDWhAAxrQgAY0oPHJf9g463fiLEeKs6RpX60GE5jABCYwgQlMYAITmMAEJjCBSbZWa87vXztVTmV2KvO/qbN36qm991qOWjvsUWvShIqsHKPgGAUDLyqjsqupXU25JtT+54+2ODraFkfSgzJvtG455bplaUKF7rwsTbA0gV9P5VMqhVQK8bwonlcQrydHGVYIZ83Yi1KeeqDN5yp4czXuQ6UElbznSvJcLEn5VYy2MOKiuF0lrJ1MBV517rdaHVmBCOlCpR58lTgmr8aCw+fHGzmqzCq0tuygIqv9LMCLMRMLswCqQIQsoZL3XVnqv553pvfzrEBpF3V0syuOK1PHVKtlu+UpVJMuedXb7z+b0ent7R4BAA=="
+                }
+            },
+            {
+                "name": "oak_stairs_top",
+                "type": "box",
+                "sizes": [1, 0.5, 0.5],
+                "inst": [
+                    [[2, 1.25, 0.25], [0, 0, -1, 0]],
+                    [[0, 1.25, 4.25], [0, 0, -1, 0]],
+                    [[1, 1.25, 4.25], [0, 0, -1, 0]],
+                    [[2, 1.25, 4.25], [0, 0, -1, 0]],
+                    [[3, 1.25, 4.25], [0, 0, -1, 0]],
+                    [[4, 1.25, 4.25], [0, 0, -1, 0]],
+                    [[0, 6.75, 4.25], [0, 0, -1, 0]],
+                    [[1, 6.75, 4.25], [0, 0, -1, 0]],
+                    [[2, 6.75, 4.25], [0, 0, -1, 0]],
+                    [[3, 6.75, 4.25], [0, 0, -1, 0]],
+                    [[4, 6.75, 4.25], [0, 0, -1, 0]]
+                ],
+                "mat": {
+                    "rough": 1,
+                    "tex": "H4sIAAAAAAAC/+3dTW7bMBCG4bt4bRT6teRcJciiQBc9QIEuit69kp1FgS5kxAw7Iz0FAvhzJorFvMOSn4bkr9PP08tlOJ++n16G+Xz69vXH6eX1tfnSnN+/3s67VFPXjpd5ufPmyzg3/bXrllf91I3DtelvEct3u2kY14BLM81Dv8b293/Dg9eY7j+5vH25ha6v+uWNtp8CBRzlNsZ57vpx/cFhfbO9XpaX3f3lvFPOqWP1WiX6te2I7Uy6LN/vrrd8HdvpMkzteo01spnLda9BmqPI59hssK0AaUJFVnkyvkiv8XQ+FwgI0rcZeFG51TbBw3VolyQc/5qWrCG31OgeDtn+PWU+yZqm7TitIe2aqmtwe0/Z7tGIIjdc5vdUup3Ni0gYKvn8cctm2Rx0RPCCQnzIKlPP7Tvd/BjSgzJvLDGje/4SVYy1KBPxEn8UaUKF7rwqmDiVRhoFngrksfQruHOShIqs4phEcTyvOL5ZmFaTMNTOPa8gXk+OMqwQzpqxF6U8NYuJE6MUosYlnvf/5AgVuudK8lwsSflVjLYw4qK4XSWsnUwFXnXut1odWYEI6UKlHnwV+J++yoLD58cbOarMKrS27KAiq/0swIsxEwuzAKpAhCyhkvddWeq/nnem9/OsQGkXdXSzK44rU8dUq2W75SlUky7JzSBbXNni6gOjNFSgAhWoQAUqUIEKVKACFahABSr+LxU2tz3s5rbgAAc4wAEOcIADHOAABzjAAQ5w7K5M3DkYRz0HAxvYwAY2sIENbGADG9jABjawgY0sbDgrz1l5D1wEJjCBCUxgAhOYwAQmMIEJTGACk0Ni4nBuh3N/xCQFBShAAQpQgAIUoAAFKEABClCA4jOgqLTOJsSBnVUWUO3qKFdwgAMc4AAHOMABDnCAAxzgAAc4ksGR5ei2KhvF5EnZFCfEQQMa0IAGNKABDWhAAxrQgAY0oPHJf9g463fiLEeKs6RpX60GE5jABCYwgQlMYAITmMAEJjCBSbZWa87vXztVTmV2KvO/qbN36qm991qOWjvsUWvShIqsHKPgGAUDLyqjsqupXU25JtT+54+2ODraFkfSgzJvtG455bplaUKF7rwsTbA0gV9P5VMqhVQK8bwonlcQrydHGVYIZ83Yi1KeeqDN5yp4czXuQ6UElbznSvJcLEn5VYy2MOKiuF0lrJ1MBV517rdaHVmBCOlCpR58lTgmr8aCw+fHGzmqzCq0tuygIqv9LMCLMRMLswCqQIQsoZL3XVnqv553pvfzrEBpF3V0syuOK1PHVKtlu+UpVJMuedXb7z+b0ent7R4BAA=="
+                }
+            },
+            {
+                "name": "oak_door_bottom",
+                "type": "box",
+                "sizes": [1, 0.2, 1],
+                "pos": [2, 1.6, 1],
+                "mat": {
+                    "rough": 1,
+                    "tex": "H4sIAAAAAAAC/+3dTYrbQBCG4bt4LYKsf/sqwywCWeQAgSxC7h79mKwGJHBbVpeexYA/U5bUw1tlq6pV9efy+3LvmuLy83JvhuLy4/uvy/3jo/xWFo+/zyKkaq63ruyHdnyjqdvq1lyr6WU/NPW17meTdhiquq2nt9vmVo4fGF9Wy8thOUhZ36pr24/vT5+q2ulw1362qTYeY8NZxou79t107Hq5vMl6PG83dNVmk768DePlNuP77f/1Pq56x8XU42U2fTmdpZrP192m08yX32w2WV1Mkv9qdB+g8lZdO7nB7ASLP8wwT7CXCWPL6llWnfF5g9VriLKOFN85HIQKHrZWD5HgHHv9MEtxJTldqwBG5a36xSfm6DLFlmr+ml8IrtPdB607yj4WoRaT4Ithw2r5ChU9gu2TL0phsX73GGcpEl+U8JVR+Mondb/PWtxAUuKX2mO+ixHBKBFM7THgOqS+qMzVIaqP+6RxkhT08llLGhOeQkX/5RWq+LjF7eMUH906UnmrduF9coJmdoN+DmWz56ZLoKg9HrL2KHpRnhtSe8y19igBRkmAqT1mXHuUAqNEMLXH3Nbh3pGKnrpX1Iu8FhGMyjz7tUpwmv4uTEKYcBzJbsmiInSTLIxgBCMYwQhGXs2IxK+Gdy/aVgkLWMACFrCAha6UulICBCAAAQhAALIbIJ7t1Fh2Jc+GEIQgBCEIQcihCfGIdtj20PCABzzgAQ94wOPJ5eqvsH+ODB/4wAc+8IGPfPnQHwUhCEEIQhCCEITYp3yOCSvIQAYykIEMZDxPhnlI5iG9+JlrfOADH/jABz5est/DPLNsdyN7KAogAAEIQADyNkCMJDSSEB3oQAc60IGOvegwTPTUm5G33FMgBCEIQQhCEPIyQowENhL49Z33EYIQhCAEIQgx38Um5e2lRlzgAhe4wAUunuFifSOQXb6hdywjBCEIQQhCEPJGQtYt0kzlZRLCBC5M4MIELkzeblIWj7+gKqPdUqHqlGno3KdOGd0HqLyV+ocR91+EaQ5CBQ9b5mNHno/NVagjK41GTNY9d/aEEsH0Kwg7nJOjUMKXJ51zHe7HUyjxS+0x37FgfIUKH8HUHgMOGuIj1JGVQSUGlch9UWf+5WXKQRF3ygFXoY6s9ErXK130ovJUuiwXZ649SoBREmBqj0ddjO1flAim9njKvo88hMo7da+oF3ktIhiVefZLEykmmkidQX3+/QfUqVuSNSABAA=="
+                }
+            },
+            {
+                "name": "oak_door_top",
+                "type": "box",
+                "sizes": [1, 0.2, 1],
+                "pos": [2, 1.6, 2],
+                "mat": {
+                    "rough": 1,
+                    "tex": "H4sIAAAAAAAC/+3dTYrbQBAF4Lt4bYKsH0ueqwyzCGSRAwSyCLl7JNmEhASkGbfb6tK3MPiZtrvb6D1J9UpVPw7fDy/n9nj4enhph+Phy+dvh5fX1+pTdby93o4hUXu6nKt+6MYP2qarL+2pnt72Q9ucmn4e0g1D3XTN9HHXXqrxC+Pb+vp2uP5I1VzqU9ePn0/fqrvp5079PKZe+RsrZhkXd+rP02831+VNo8d5z8O5Xj2kry7DuNx2/Lz7vd/bqjNuphmX2fbVNEs9z3e+TNPMy29XD1ncTJJ/NToHoLLRuZtoMJPgyof5YJ4O9iqhtizOskjG+wcsriHKPlKccxAECi5biz+RYI5cF2YpVlLSWgkYVDbqr5yY1WXSlno+zV+P4CbdfdAyUfKMCLWZBCeGFbvFFSi6guWJF6UYsXz3GGcrAl8Q+SpIvsoJ3efZixtIiH7xHsvdDAWDKBjvMeA+hL6gwtEm3Mc8YZwkhl45e0kzBFOg6FdeoczHNbSPYz66dYTKRt31eJ9I0M406Gcpm5mbLoDCe9yk90i9IM8N8R5L9R4FwCABMN5jwd6jEBhEwXiPpe3DvSMUPXTP1Iu8FwoGFR79WjyC09R3MSTEEMQR7BYsOoYukrV8UXv/BdryHHlGWOg7M7zpB/2gH/Tjg/oh0KvA3WPSKI0odUSeLFuqQTVwkWqoSqkq5e0A8eBN5M2QEBJCQkjIkyXEEaK07EJUNkPtqNPoAd5e70IJHnd74NSb+fsRFEERtOC/3+PFxZY2zvH0+ccpcrd//MCpM7m92Imd2Imdnm3fXl3tP5O4/n3r2vbBDiZ6oid6oqdk10KruofJTLrfpoyyD8JBOAgH4ShXOKS6BuzCwKbcd6ZJLqOMeBAP4rE/8dBFRReVZztJu41EJjhZoSd6ouez6OkCSw+fZ0+y2zQYz2BgJ3YWy07to7SPeq6VKgMGN3ETN8vipsZlu84e3ZUhKMsk6SOVpIN0kA7S8RyfWGZr6GaDWeoEl+Pv7cp2zeNkExACQkAIiGrQmoVyeSW5qiNPOSgH5XhmFVeJraGTdLeRp8Qo/3vEcnbC4ohMVggBISAEhIB8PNtDo25D1g+JlLiX4l41043EshasubVKcWpMcguHXYaQFJKy+hipjrdXUKT/uf7nS39ZdA5AZSMumG7K/5FpBIGCy5ZerJF7saIKtGUky0SjyX1HTyAKxqMO2+sPUSDy5aH3UrutYQpEv3iP5XaVwhUovILxHgN2qMERaMtI/w39N8S+oD1feWmBcIzbAgFVoC0jlehVoqdeUJlIwe3jnr1HATBIAIz3GLpsL65A0RWM9xiv+ieGQGWH7pl6kfdCwaDCo18KjRnSCoXtAL39/AX+Qb9UgRgBAA==",
+                    "omap": "H4sIAAAAAAAC/+3WsQmAQAxA0V1SH6IgIreKXCFYOIBgIe6u4C1gY+MrAnlNmt/kiD3y0KdYI/djimXeIk9T17SpTklERERERERERERERERERERERERERERERERERERERERERES/VXtvdV7p65ukn3766aeffqQfERER+V/8L/qpop9++umnn35ERERERERERERERERERERERERERERERERERERERERERERERET0qJwXgapOkxeoAAA="
+                }
+            },
+            {
                 "name": "torch",
                 "type": "box",
                 "sizes": [0.125, 0.125, 0.625],
-                "pos": [0, 1.35, 0],
+                "pos": [2, 1.35, 3],
                 "dir": [0, 0, 1, -0.8],
                 "mat": {
                     "rough": 1,
@@ -128,7 +192,7 @@
         "light": [
             {
                 "type": "dir",
-                "color": "#ffd345",
+                "color": "#ffe594",
                 "dir": [-0.1, 1, -0.5],
                 "pwr": 0.7
             }
