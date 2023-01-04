@@ -195,7 +195,7 @@ impl Ray {
         Ray::cast(self.into(), dir, self.pwr * (1.0 - rt.loss.min(1.0)), self.bounce + 1)
     }
 
-    pub fn refract(&self, rt:&RayTracer, hit: &RayHit) -> Option<Ray> {
+    pub fn refract(&self, rt: &RayTracer, hit: &RayHit) -> Option<Ray> {
         let mut rough = hit.get_rough();
         let opacity = hit.get_opacity();
 
@@ -210,6 +210,106 @@ impl Ray {
         let dir = self.dir.refract(eta, norm)?.norm();
 
         Some(Ray::cast(self.into(), dir, self.pwr * (1.0 - rt.loss.min(1.0)), self.bounce + 1))
+    }
+
+    pub fn intersect_box(&self, aabb: Vec3f, pos: Vec3f) -> Option<(f32, f32)> {
+        let mut m = self.dir.recip();
+
+        // workaround for zero division
+        if m.x.is_infinite() {
+            m.x = E.recip();
+        }
+
+        if m.y.is_infinite() {
+            m.y = E.recip();
+        }
+
+        if m.z.is_infinite() {
+            m.z = E.recip();
+        }
+
+        let n = (self.orig - pos).hadam(m);
+        let k = (0.5 * aabb).hadam(m.abs());
+
+        let a = -n - k;
+        let b = -n + k;
+
+        let t0 = a.x.max(a.y).max(a.z);
+        let t1 = b.x.min(b.y).min(b.z);
+
+        if t0 > t1 || t1 < 0.0 {
+            return None
+        }
+
+        Some((t0, t1))
+    }
+
+    pub fn intersect_plane(&self, n: Vec3f, pos: Vec3f) -> Option<(f32, f32)> {
+        let d = -n.norm() * pos;
+        let t = -(self.orig * n.norm() + d) / (self.dir * n.norm());
+
+        if t <= 0.0 {
+            return None;
+        }
+        Some((t, t))
+    }
+
+    pub fn intersect_sphere(&self, r: f32, pos: Vec3f) -> Option<(f32, f32)> {
+        let o = self.orig - pos;
+
+        let a = self.dir * self.dir;
+        let b = 2.0 * (o * self.dir);
+        let c = o * o - r.powi(2);
+
+        let disc = b.powi(2) - 4.0 * a * c;
+
+        if disc < 0.0 {
+            return None
+        }
+
+        let t0 = (-b - disc.sqrt()) / (2.0 * a);
+        let t1 = (-b + disc.sqrt()) / (2.0 * a);
+
+        if t0 < 0.0 {
+            return None
+        }
+
+        Some((t0, t1))
+    }
+
+    pub fn intersect_triangle(&self, tri: (Vec3f, Vec3f, Vec3f), pos: Vec3f) -> Option<(f32, f32)> {
+        let e0 = tri.1 - tri.0;
+        let e1 = tri.2 - tri.0;
+
+        let p = self.dir.cross(e1);
+        let d = e0 * p;
+
+        if d < E && d > -E {
+            return None;
+        }
+
+        let inv_d = d.recip();
+        let t = self.orig - (tri.0 + pos);
+        let u = (t * p) * inv_d;
+
+        if u < 0.0 || u > 1.0 {
+            return None;
+        }
+
+        let q = t.cross(e0);
+        let v = (self.dir * q) * inv_d;
+
+        if v < 0.0 || (u + v) > 1.0 {
+            return None;
+        }
+
+        let t = (e1 * q) * inv_d;
+
+        if t < 0.0 {
+            return None
+        }
+
+        Some((t, t))
     }
 }
 
@@ -254,7 +354,7 @@ impl Texture {
 
 impl Renderer {
     fn intersect_bvh(&self, inst: &RendererInstance, ray: &Ray, bvh: &BVH) -> Option<Vec<usize>> {
-        if !self.check_aabb(inst, ray, bvh.aabb, bvh.rel_pos) {
+        if ray.intersect_box(bvh.aabb, inst.pos + bvh.rel_pos).is_none() {
             return None;
         }
 
@@ -275,109 +375,28 @@ impl Renderer {
         let rot_y = Mat3f::rotate_y(-inst.dir);
         let look = Mat4f::lookat(-inst.dir, Vec3f::up());
 
-        let n_orig = inst.pos + rot_y * (look * (ray.orig - inst.pos));
-        let n_dir = rot_y * (look * ray.dir);
+        let n_ray = Ray {
+            orig: inst.pos + rot_y * (look * (ray.orig - inst.pos)),
+            dir: rot_y * (look * ray.dir),
+            ..ray.clone()
+        };
 
         match self.kind {
             RendererKind::Sphere{r} => {
-                let o = n_orig - inst.pos;
-
-                let a = n_dir * n_dir;
-                let b = 2.0 * (o * n_dir);
-                let c = o * o - r.powi(2);
-
-                let disc = b.powi(2) - 4.0 * a * c;
-
-                if disc < 0.0 {
-                    return None
-                }
-
-                let t0 = (-b - disc.sqrt()) / (2.0 * a);
-                let t1 = (-b + disc.sqrt()) / (2.0 * a);
-
-                if t0 >= 0.0 {
-                    return Some(((t0, None), (t1, None)));
-                }
-
-                None
+                return n_ray.intersect_sphere(r, inst.pos).map(|(t0, t1)| ((t0, None), (t1, None)));
             },
             RendererKind::Plane{n} => {
-                let d = -n.norm() * inst.pos;
-                let t = -(n_orig * n.norm() + d) / (n_dir * n.norm());
-
-                if t > 0.0 {
-                    return Some(((t, None), (t, None)));
-                }
-                None
+                return n_ray.intersect_plane(n, inst.pos).map(|(t0, t1)| ((t0, None), (t1, None)));
             },
             RendererKind::Box{sizes} => {
-                let mut m = n_dir.recip();
-
-                // workaround for zero division
-                if m.x.is_infinite() {
-                    m.x = E.recip();
-                }
-
-                if m.y.is_infinite() {
-                    m.y = E.recip();
-                }
-
-                if m.z.is_infinite() {
-                    m.z = E.recip();
-                }
-
-                let n = (n_orig - inst.pos).hadam(m);
-                let k = (0.5 * sizes).hadam(m.abs());
-
-                let a = -n - k;
-                let b = -n + k;
-
-                let t0 = a.x.max(a.y).max(a.z);
-                let t1 = b.x.min(b.y).min(b.z);
-
-                if t0 > t1 || t1 < 0.0 {
-                    return None
-                }
-
-                Some(((t0, None), (t1, None)))
+                return n_ray.intersect_box(sizes, inst.pos).map(|(t0, t1)| ((t0, None), (t1, None)));
             },
             RendererKind::Triangle{vtx} => {
-                let e0 = vtx.1 - vtx.0;
-                let e1 = vtx.2 - vtx.0;
-
-                let p = n_dir.cross(e1);
-                let d = e0 * p;
-
-                if d < E && d > -E {
-                    return None;
-                }
-
-                let inv_d = d.recip();
-                let t = n_orig - (vtx.0 + inst.pos);
-                let u = (t * p) * inv_d;
-
-                if u < 0.0 || u > 1.0 {
-                    return None;
-                }
-
-                let q = t.cross(e0);
-                let v = (n_dir * q) * inv_d;
-
-                if v < 0.0 || (u + v) > 1.0 {
-                    return None;
-                }
-
-                let t = (e1 * q) * inv_d;
-
-                if t < 0.0 {
-                    return None
-                }
-
-                Some(((t, None), (t, None)))
+                return n_ray.intersect_triangle(vtx, inst.pos).map(|(t0, t1)| ((t0, None), (t1, None)));
             },
             RendererKind::Mesh{ref mesh, ref bvh} => {
                 // get indexes
-                let bvh_idx = self.intersect_bvh(inst, ray, bvh);
+                let bvh_idx = self.intersect_bvh(inst, &n_ray, bvh);
                 if bvh_idx.is_none() {
                     return None;
                 }
@@ -389,13 +408,7 @@ impl Renderer {
                 bvh_idx.dedup();
 
                 for idx in bvh_idx {
-                    let tri = Renderer {
-                        kind: RendererKind::Triangle{vtx: mesh[idx].clone()},
-                        instance: vec![RendererInstance{pos: inst.pos, dir: inst.dir}],
-                        mat: self.mat.clone()
-                    };
-
-                    if let Some(((t0, _), (t1, _))) = tri.intersect(inst, ray) {
+                    if let Some((t0, t1)) = n_ray.intersect_triangle(mesh[idx], inst.pos) {
                         hits.push(((t0, Some(idx)), (t1, Some(idx))));
                     }
                 }
@@ -513,46 +526,6 @@ impl Renderer {
         );
 
         root
-    }
-
-    fn check_aabb(&self, inst: &RendererInstance, ray: &Ray, aabb: Vec3f, rel_pos: Vec3f) -> bool {
-        let rot_y = Mat3f::rotate_y(-inst.dir);
-        let look = Mat4f::lookat(-inst.dir, Vec3f::up());
-
-        let pos = inst.pos + rel_pos;
-
-        let n_orig = pos + rot_y * (look * (ray.orig - pos));
-        let n_dir = rot_y * (look * ray.dir);
-        
-        let mut m = n_dir.recip();
-
-        // workaround for zero division
-        if m.x.is_infinite() {
-            m.x = E.recip();
-        }
-
-        if m.y.is_infinite() {
-            m.y = E.recip();
-        }
-
-        if m.z.is_infinite() {
-            m.z = E.recip();
-        }
-
-        let n = (n_orig - pos).hadam(m);
-        let k = (0.5 * aabb).hadam(m.abs());
-
-        let a = -n - k;
-        let b = -n + k;
-
-        let t0 = a.x.max(a.y).max(a.z);
-        let t1 = b.x.min(b.y).min(b.z);
-
-        if t0 > t1 || t1 < 0.0 {
-            return false;
-        }
-
-        true
     }
 
     pub fn normal<'a>(&self, inst: &RendererInstance, hit: &RayHit<'a>) -> Vec3f {
