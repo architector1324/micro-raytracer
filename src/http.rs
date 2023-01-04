@@ -18,7 +18,7 @@ pub struct HttpServer {
 #[derive(Debug)]
 struct HttpRequest {
     method: String,
-    uri: String,
+    _uri: String,
     version: String,
     headers: HashMap<String, String>,
     body: String
@@ -50,7 +50,7 @@ impl HttpRequest {
 
         Ok(HttpRequest {
             method,
-            uri,
+            _uri: uri,
             version,
             headers: map,
             body

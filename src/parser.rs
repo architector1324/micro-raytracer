@@ -6,7 +6,7 @@ use std::io::prelude::{Read, Write};
 use serde::{Serialize, Deserialize};
 
 use crate::lin::{Vec3f, Vec4f};
-use crate::rt::{Render, RayTracer, Frame, Scene, Renderer, RendererKind, Light, LightKind, Camera, Material, Texture, Sky, RendererInstance};
+use crate::rt::{Render, RayTracer, Frame, Scene, Renderer, RendererKind, Light, LightKind, Camera, Material, Texture, Sky, RendererInstance, BVH, Mesh, Triangle, AABB, Sphere, Box};
 
 
 pub trait Wrapper<T> {
@@ -807,12 +807,16 @@ impl Wrapper<RendererKind> for MeshWrapper {
         let buf = self.to_buffer()?;
 
         if let MeshWrapper::Mesh(mesh) = buf {
-            return Ok(
-                RendererKind::Mesh {
-                    bvh: Renderer::gen_bvh(&mesh, 3).ok_or("empty mesh!".to_string())?,
-                    mesh
-                }
-            )
+            let mut mesh = Mesh {
+                mesh: mesh.iter().cloned().map(|(x, y, z)| Triangle(x, y, z)).collect(),
+                bvh: None
+            };
+
+            if let Some(aabb) = mesh.gen_aabb() {
+                mesh.bvh = BVH::gen(aabb, &mesh.mesh, 3);
+            }
+
+            return Ok(RendererKind::Mesh(mesh))
         }
 
         unreachable!()
@@ -822,10 +826,10 @@ impl Wrapper<RendererKind> for MeshWrapper {
 impl Wrapper<RendererKind> for RendererKindWrapper {
     fn unwrap(self) -> Result<RendererKind, String> {
         match self {
-            RendererKindWrapper::Sphere{r} => Ok(RendererKind::Sphere{r}),
-            RendererKindWrapper::Plane{n} => Ok(RendererKind::Plane{n}),
-            RendererKindWrapper::Box{sizes} => Ok(RendererKind::Box{sizes}),
-            RendererKindWrapper::Triangle{vtx} => Ok(RendererKind::Triangle{vtx}),
+            RendererKindWrapper::Sphere{r} => Ok(RendererKind::Sphere(Sphere(r))),
+            RendererKindWrapper::Plane{n} => Ok(RendererKind::Plane(crate::rt::Plane(n))),
+            RendererKindWrapper::Box{sizes} => Ok(RendererKind::Box(Box(sizes))),
+            RendererKindWrapper::Triangle{vtx} => Ok(RendererKind::Triangle(Triangle(vtx.0, vtx.1, vtx.2))),
             RendererKindWrapper::Mesh{mesh} => mesh.unwrap()
         }
     }
@@ -848,8 +852,11 @@ impl Wrapper<Renderer> for RendererWrapper {
             ]
         };
 
+        let kind = self.kind.unwrap()?;
+
         Ok(Renderer{
-            kind: self.kind.unwrap()?,
+            aabb: kind.gen_aabb(),
+            kind: kind,
             mat: self.mat.unwrap()?,
             instance: instance
         })
@@ -912,6 +919,7 @@ impl Wrapper<Scene> for SceneWrapper {
     fn unwrap(self) -> Result<Scene, String> {
         Ok(Scene {
             renderer: if let Some(objs) = self.renderer {Some(objs.unwrap()?)} else {None},
+            renderer_bvh: None,
             light: if let Some(lights) = self.light {Some(lights.unwrap()?)} else {None},
             sky: self.sky.unwrap()?
         })

@@ -28,6 +28,20 @@ pub struct RaytraceIterator<'a> {
     next_ray: Ray
 }
 
+pub trait Intersect {
+    type Output;
+
+    fn intersect(&self, ray: &Ray, pos: Vec3f) -> Option<Self::Output>;
+}
+
+pub trait Normal {
+    fn normal(&self, hit: Vec3f, pos: Vec3f) -> Vec3f;
+}
+
+pub trait UV {
+    fn uv(&self, hit: Vec3f, pos: Vec3f) -> Vec2f;
+}
+
 #[derive(Debug, Clone)]
 pub struct Ray {
     pub orig: Vec3f,
@@ -88,24 +102,45 @@ pub struct Material {
     pub emap: Option<Texture>, // emit map
 }
 
+pub trait AABB {
+    fn gen_aabb(&self) -> Option<Box>;
+    fn check_in_aabb(&self, aabb: &Box, rel_pos: Vec3f) -> bool;
+}
+
 #[derive(Debug, Clone)]
 pub struct BVH {
-    aabb: Vec3f,
+    aabb: Box,
     rel_pos: Vec3f,
     content: Option<Vec<usize>>,
     childs: Option<Vec<Option<BVH>>>
 }
 
+
+#[derive(Debug)]
+pub struct Sphere(pub f32);
+
+#[derive(Debug)]
+pub struct Plane(pub Vec3f);
+
+#[derive(Debug, Clone)]
+pub struct Box(pub Vec3f);
+
+#[derive(Debug, Clone)]
+pub struct Triangle(pub Vec3f, pub Vec3f, pub Vec3f);
+
+#[derive(Debug)]
+pub struct Mesh {
+    pub mesh: Vec<Triangle>,
+    pub bvh: Option<BVH>
+}
+
 #[derive(Debug)]
 pub enum RendererKind {
-    Sphere{r: f32},
-    Plane{n: Vec3f},
-    Box{sizes: Vec3f},
-    Triangle{vtx: (Vec3f, Vec3f, Vec3f)},
-    Mesh {
-        mesh: Vec<(Vec3f, Vec3f, Vec3f)>,
-        bvh: BVH
-    }
+    Sphere(Sphere),
+    Plane(Plane),
+    Box(Box),
+    Triangle(Triangle),
+    Mesh(Mesh)
 }
 
 #[derive(Debug)]
@@ -118,7 +153,8 @@ pub struct RendererInstance {
 pub struct Renderer {
     pub kind: RendererKind,
     pub mat: Material,
-    pub instance: Vec<RendererInstance>
+    pub instance: Vec<RendererInstance>,
+    pub aabb: Option<Box>
 }
 
 #[derive(Debug)]
@@ -147,8 +183,10 @@ pub struct Sky {
 #[derive(Debug)]
 pub struct Scene {
     pub renderer: Option<Vec<Renderer>>,
+    pub renderer_bvh: Option<BVH>,
+
     pub light: Option<Vec<Light>>,
-    pub sky: Sky
+    pub sky: Sky,
 }
 
 // data
@@ -171,6 +209,344 @@ impl Default for Ray {
 }
 
 // raytracing
+impl AABB for Box {
+    fn gen_aabb(&self) -> Option<Box> {
+        Some(Box(self.0))
+    }
+
+    fn check_in_aabb(&self, _aabb: &Box, _rel_pos: Vec3f) -> bool {
+        todo!()
+    }
+}
+
+impl AABB for Triangle {
+    fn gen_aabb(&self) -> Option<Box> {
+        todo!()
+    }
+
+    fn check_in_aabb(&self, aabb: &Box, rel_pos: Vec3f) -> bool {
+        let v0 = rel_pos + 0.5 * aabb.0;
+        let v1 = rel_pos - 0.5 * aabb.0;
+    
+        let vtx_in_aabb = |vtx: Vec3f| {
+            if vtx.x > v0.x || vtx.y > v0.y || vtx.z > v0.z {
+                return false;
+            }
+    
+            if vtx.x < v1.x || vtx.y < v1.y || vtx.z < v1.z {
+                return false;
+            }
+    
+            true
+        };
+
+        if vtx_in_aabb(self.0) || vtx_in_aabb(self.1) || vtx_in_aabb(self.2) {
+            return true;
+        }
+    
+        false
+    }
+}
+
+impl AABB for Sphere {
+    fn gen_aabb(&self) -> Option<Box> {
+        Some(Box(Vec3f::from([self.0, self.0, self.0])))
+    }
+
+    fn check_in_aabb(&self, _aabb: &Box, _rel_pos: Vec3f) -> bool {
+        todo!()
+    }
+}
+
+impl AABB for Mesh {
+    fn gen_aabb(&self) -> Option<Box> {
+        let it = self.mesh.iter().cloned().flat_map(|v| [v.0, v.1, v.2]);
+
+        Some(Box(Vec3f::from([
+            2.0 * it.clone().max_by(|max, v| max.x.abs().total_cmp(&v.x.abs()))?.x.abs(),
+            2.0 * it.clone().max_by(|max, v| max.y.abs().total_cmp(&v.y.abs()))?.y.abs(),
+            2.0 * it.max_by(|max, v| max.z.abs().total_cmp(&v.z.abs()))?.z.abs(),
+        ])))    
+    }
+
+    fn check_in_aabb(&self, _aabb: &Box, _rel_pos: Vec3f) -> bool {
+        todo!()
+    }
+}
+
+impl AABB for RendererKind {
+    fn check_in_aabb(&self, aabb: &Box, rel_pos: Vec3f) -> bool {
+        match self {
+            RendererKind::Box(b) => b.check_in_aabb(aabb, rel_pos),
+            RendererKind::Sphere(sph) => sph.check_in_aabb(aabb, rel_pos),
+            RendererKind::Triangle(tri) => tri.check_in_aabb(aabb, rel_pos),
+            RendererKind::Mesh(mesh) => mesh.check_in_aabb(aabb, rel_pos),
+            _ => false
+        }
+    }
+
+    fn gen_aabb(&self) -> Option<Box> {
+        match self {
+            RendererKind::Box(b) => b.gen_aabb(),
+            RendererKind::Sphere(sph) => sph.gen_aabb(),
+            RendererKind::Triangle(tri) => tri.gen_aabb(),
+            RendererKind::Mesh(mesh) => mesh.gen_aabb(),
+            _ => None
+        }
+    }
+}
+
+impl Intersect for Box {
+    type Output = (f32, f32);
+
+    fn intersect(&self, ray: &Ray, pos: Vec3f) -> Option<Self::Output> {
+        let mut m = ray.dir.recip();
+
+        // workaround for zero division
+        if m.x.is_infinite() {
+            m.x = E.recip();
+        }
+
+        if m.y.is_infinite() {
+            m.y = E.recip();
+        }
+
+        if m.z.is_infinite() {
+            m.z = E.recip();
+        }
+
+        let n = (ray.orig - pos).hadam(m);
+        let k = (0.5 * self.0).hadam(m.abs());
+
+        let a = -n - k;
+        let b = -n + k;
+
+        let t0 = a.x.max(a.y).max(a.z);
+        let t1 = b.x.min(b.y).min(b.z);
+
+        if t0 > t1 || t1 < 0.0 {
+            return None
+        }
+
+        Some((t0, t1))
+    }
+}
+
+impl Intersect for Sphere {
+    type Output = (f32, f32);
+    fn intersect(&self, ray: &Ray, pos: Vec3f) -> Option<Self::Output> {
+        let o = ray.orig - pos;
+
+        let a = ray.dir * ray.dir;
+        let b = 2.0 * (o * ray.dir);
+        let c = o * o - self.0.powi(2);
+
+        let disc = b.powi(2) - 4.0 * a * c;
+
+        if disc < 0.0 {
+            return None
+        }
+
+        let t0 = (-b - disc.sqrt()) / (2.0 * a);
+        let t1 = (-b + disc.sqrt()) / (2.0 * a);
+
+        if t0 < 0.0 {
+            return None
+        }
+
+        Some((t0, t1))
+    }
+}
+
+impl Intersect for Triangle {
+    type Output = f32;
+
+    fn intersect(&self, ray: &Ray, pos: Vec3f) -> Option<Self::Output> {
+        let e0 = self.1 - self.0;
+        let e1 = self.2 - self.0;
+
+        let p = ray.dir.cross(e1);
+        let d = e0 * p;
+
+        if d < E && d > -E {
+            return None;
+        }
+
+        let inv_d = d.recip();
+        let t = ray.orig - (self.0 + pos);
+        let u = (t * p) * inv_d;
+
+        if u < 0.0 || u > 1.0 {
+            return None;
+        }
+
+        let q = t.cross(e0);
+        let v = (ray.dir * q) * inv_d;
+
+        if v < 0.0 || (u + v) > 1.0 {
+            return None;
+        }
+
+        let t = (e1 * q) * inv_d;
+
+        if t < 0.0 {
+            return None
+        }
+
+        Some(t)
+    }
+}
+
+impl Intersect for Plane {
+    type Output = f32;
+
+    fn intersect(&self, ray: &Ray, pos: Vec3f) -> Option<Self::Output> {
+        let d = -self.0.norm() * pos;
+        let t = -(ray.orig * self.0.norm() + d) / (ray.dir * self.0.norm());
+
+        if t <= 0.0 {
+            return None;
+        }
+        Some(t)
+    }
+}
+
+impl Normal for Box {
+    fn normal(&self, hit: Vec3f, pos: Vec3f) -> Vec3f {
+        let p = (hit - pos).hadam(self.0.recip() * 2.0);
+
+        let pos_r = 1.0-E..1.0+E;
+        let neg_r = -1.0-E..-1.0+E;
+
+        let mut n = Vec3f::zero();
+
+        if pos_r.contains(&p.x) {
+            // right
+            n = Vec3f::right()
+        } else if neg_r.contains(&p.x) {
+            // left
+            n = -Vec3f::right()
+        } else if pos_r.contains(&p.y) {
+            // forward
+            n = Vec3f::forward()
+        } else if neg_r.contains(&p.y) {
+            // backward
+            n = -Vec3f::forward()
+        } if pos_r.contains(&p.z) {
+            // top
+            n = Vec3f::up()
+        } else if neg_r.contains(&p.z) {
+            // bottom
+            n = -Vec3f::up()
+        }
+
+        n
+    }
+}
+
+impl Normal for Sphere {
+    fn normal(&self, hit: Vec3f, pos: Vec3f) -> Vec3f {
+        hit - pos
+    }
+}
+
+impl Normal for Plane {
+    fn normal(&self, _hit: Vec3f, _pos: Vec3f) -> Vec3f {
+        self.0
+    }
+}
+
+impl Normal for Triangle {
+    fn normal(&self, _hit: Vec3f, _pos: Vec3f) -> Vec3f {
+        let e0 = self.1 - self.0;
+        let e1 = self.2 - self.0;
+
+        e0.cross(e1)
+    }
+}
+
+impl UV for Box {
+    fn uv(&self, hit: Vec3f, pos: Vec3f) -> Vec2f {
+        let p = (hit - pos).hadam(self.0.recip() * 2.0);
+
+        let pos_r = 1.0-E..1.0+E;
+        let neg_r = -1.0-E..-1.0+E;
+
+        if pos_r.contains(&p.x) {
+            // right
+            return Vec2f {
+                x: (0.5 + 0.5 * p.y) / 4.0 + 2.0 / 4.0,
+                y: (0.5 - 0.5 * p.z) / 3.0 + 1.0 / 3.0
+            }
+        } else if neg_r.contains(&p.x) {
+            // left
+            return Vec2f {
+                x: (0.5 - 0.5 * p.y) / 4.0,
+                y: (0.5 - 0.5 * p.z) / 3.0 + 1.0 / 3.0
+            }
+        } else if pos_r.contains(&p.y) {
+            // forward
+            return Vec2f {
+                x: (0.5 - 0.5 * p.x) / 4.0 + 3.0 / 4.0,
+                y: (0.5 - 0.5 * p.z) / 3.0 + 1.0 / 3.0
+            };
+        } else if neg_r.contains(&p.y) {
+            // backward
+            return Vec2f {
+                x: (0.5 + 0.5 * p.x) / 4.0 + 1.0 / 4.0,
+                y: (0.5 - 0.5 * p.z) / 3.0 + 1.0 / 3.0
+            };
+        } if pos_r.contains(&p.z) {
+            // top
+            return Vec2f {
+                x: (0.5 + 0.5 * p.x) / 4.0 + 1.0 / 4.0,
+                y: (0.5 - 0.5 * p.y) / 3.0
+            }
+        } else if neg_r.contains(&p.z) {
+            // bottom
+            return Vec2f {
+                x: (0.5 + 0.5 * p.x) / 4.0 + 1.0 / 4.0,
+                y: (0.5 + 0.5 * p.y) / 3.0 + 2.0 / 3.0
+            }
+        } else {
+            // error
+            return Vec2f::zero();
+        }
+    }
+}
+
+impl UV for Sphere {
+    fn uv(&self, hit: Vec3f, pos: Vec3f) -> Vec2f {
+        let v = (hit - pos).norm();
+        Vec2f {
+            x: 0.5 + 0.5 * v.x.atan2(-v.y) / PI,
+            y: 0.5 - 0.5 * v.z
+        } 
+    }
+}
+
+impl UV for Plane {
+    fn uv(&self, hit: Vec3f, _pos: Vec3f) -> Vec2f {
+        let mut x = (hit.x + 0.5).fract();
+        if x < 0.0 {
+            x = 1.0 + x;
+        }
+
+        let mut y = (hit.y + 0.5).fract();
+        if y < 0.0 {
+            y = 1.0 + y;
+        }
+
+        Vec2f{x, y}
+    }
+}
+
+impl UV for Triangle {
+    fn uv(&self, _hit: Vec3f, _pos: Vec3f) -> Vec2f {
+        todo!()
+    }
+}
+
 impl Ray {
     pub fn cast(orig: Vec3f, dir: Vec3f, pwr: f32, bounce: usize) -> Ray {
         Ray{orig: orig + dir * E, dir: dir, pwr: pwr, bounce: bounce, t: 0.0}
@@ -210,106 +586,6 @@ impl Ray {
         let dir = self.dir.refract(eta, norm)?.norm();
 
         Some(Ray::cast(self.into(), dir, self.pwr * (1.0 - rt.loss.min(1.0)), self.bounce + 1))
-    }
-
-    pub fn intersect_box(&self, aabb: Vec3f, pos: Vec3f) -> Option<(f32, f32)> {
-        let mut m = self.dir.recip();
-
-        // workaround for zero division
-        if m.x.is_infinite() {
-            m.x = E.recip();
-        }
-
-        if m.y.is_infinite() {
-            m.y = E.recip();
-        }
-
-        if m.z.is_infinite() {
-            m.z = E.recip();
-        }
-
-        let n = (self.orig - pos).hadam(m);
-        let k = (0.5 * aabb).hadam(m.abs());
-
-        let a = -n - k;
-        let b = -n + k;
-
-        let t0 = a.x.max(a.y).max(a.z);
-        let t1 = b.x.min(b.y).min(b.z);
-
-        if t0 > t1 || t1 < 0.0 {
-            return None
-        }
-
-        Some((t0, t1))
-    }
-
-    pub fn intersect_plane(&self, n: Vec3f, pos: Vec3f) -> Option<(f32, f32)> {
-        let d = -n.norm() * pos;
-        let t = -(self.orig * n.norm() + d) / (self.dir * n.norm());
-
-        if t <= 0.0 {
-            return None;
-        }
-        Some((t, t))
-    }
-
-    pub fn intersect_sphere(&self, r: f32, pos: Vec3f) -> Option<(f32, f32)> {
-        let o = self.orig - pos;
-
-        let a = self.dir * self.dir;
-        let b = 2.0 * (o * self.dir);
-        let c = o * o - r.powi(2);
-
-        let disc = b.powi(2) - 4.0 * a * c;
-
-        if disc < 0.0 {
-            return None
-        }
-
-        let t0 = (-b - disc.sqrt()) / (2.0 * a);
-        let t1 = (-b + disc.sqrt()) / (2.0 * a);
-
-        if t0 < 0.0 {
-            return None
-        }
-
-        Some((t0, t1))
-    }
-
-    pub fn intersect_triangle(&self, tri: (Vec3f, Vec3f, Vec3f), pos: Vec3f) -> Option<(f32, f32)> {
-        let e0 = tri.1 - tri.0;
-        let e1 = tri.2 - tri.0;
-
-        let p = self.dir.cross(e1);
-        let d = e0 * p;
-
-        if d < E && d > -E {
-            return None;
-        }
-
-        let inv_d = d.recip();
-        let t = self.orig - (tri.0 + pos);
-        let u = (t * p) * inv_d;
-
-        if u < 0.0 || u > 1.0 {
-            return None;
-        }
-
-        let q = t.cross(e0);
-        let v = (self.dir * q) * inv_d;
-
-        if v < 0.0 || (u + v) > 1.0 {
-            return None;
-        }
-
-        let t = (e1 * q) * inv_d;
-
-        if t < 0.0 {
-            return None
-        }
-
-        Some((t, t))
     }
 }
 
@@ -351,10 +627,85 @@ impl Texture {
     }
 }
 
+impl BVH {
+    fn construct<T: AABB>(aabb: Box, rel_pos: Vec3f, objs: &Vec<T>, d: usize, deep: usize, gen_pos: fn() -> [Vec3f; 8]) -> Option<BVH> {
+        let mut child = BVH {
+            aabb: aabb,
+            rel_pos,
+            content: None,
+            childs: None
+        };
+
+        // get content
+        if d >= deep {
+            let tmp = objs.iter()
+                .enumerate()
+                .filter_map(|(idx, obj)| {
+                    if obj.check_in_aabb(&child.aabb, child.rel_pos) {
+                        return Some(idx)
+                    }
+                    None
+                })
+                .collect::<Vec<_>>();
+
+            if tmp.len() != 0 {
+                child.content = Some(tmp);
+            }
+
+            return Some(child);
+        }
+
+        // get childs
+        let tmp = gen_pos().iter()
+            .cloned()
+            .map(|v| BVH::construct(Box(0.5 * child.aabb.0), child.rel_pos + child.aabb.0.hadam(v * 0.25), objs, d + 1, deep, gen_pos))
+            .filter(|c| c.is_some())
+            .filter(|c| {
+                let c = c.as_ref().unwrap();
+                c.content.is_some() || c.childs.is_some()
+            })
+            .collect::<Vec<_>>();
+        
+        if tmp.len() != 0 {
+            child.childs = Some(tmp);
+        }
+
+        Some(child)
+    }
+
+    pub fn gen<T: AABB>(aabb: Box, objs: &Vec<T>, max_deep: usize) -> Option<BVH> {
+        // helpers
+        let gen_pos = || -> [Vec3f; 8] {
+            [
+                Vec3f::from([1.0, 1.0, 1.0]),
+                Vec3f::from([-1.0, 1.0, 1.0]),
+                Vec3f::from([-1.0, -1.0, 1.0]),
+                Vec3f::from([1.0, -1.0, 1.0]),
+                Vec3f::from([1.0, 1.0, -1.0]),
+                Vec3f::from([-1.0, 1.0, -1.0]),
+                Vec3f::from([-1.0, -1.0, -1.0]),
+                Vec3f::from([1.0, -1.0, -1.0]),
+            ]
+        };
+
+        // construct bvh
+        let root = BVH::construct(
+            aabb,
+            Vec3f::zero(),
+            objs,
+            0,
+            max_deep,
+            gen_pos
+        );
+
+        root
+    }
+}
+
 
 impl Renderer {
     fn intersect_bvh(&self, inst: &RendererInstance, ray: &Ray, bvh: &BVH) -> Option<Vec<usize>> {
-        if ray.intersect_box(bvh.aabb, inst.pos + bvh.rel_pos).is_none() {
+        if bvh.aabb.intersect(ray, inst.pos + bvh.rel_pos).is_none() {
             return None;
         }
 
@@ -381,22 +732,19 @@ impl Renderer {
             ..ray.clone()
         };
 
-        match self.kind {
-            RendererKind::Sphere{r} => {
-                return n_ray.intersect_sphere(r, inst.pos).map(|(t0, t1)| ((t0, None), (t1, None)));
-            },
-            RendererKind::Plane{n} => {
-                return n_ray.intersect_plane(n, inst.pos).map(|(t0, t1)| ((t0, None), (t1, None)));
-            },
-            RendererKind::Box{sizes} => {
-                return n_ray.intersect_box(sizes, inst.pos).map(|(t0, t1)| ((t0, None), (t1, None)));
-            },
-            RendererKind::Triangle{vtx} => {
-                return n_ray.intersect_triangle(vtx, inst.pos).map(|(t0, t1)| ((t0, None), (t1, None)));
-            },
-            RendererKind::Mesh{ref mesh, ref bvh} => {
+        match &self.kind {
+            RendererKind::Sphere(sph) => sph.intersect(&n_ray, inst.pos).map(|(t0, t1)| ((t0, None), (t1, None))),
+            RendererKind::Plane(pln) => pln.intersect(&n_ray, inst.pos).map(|t| ((t, None), (t, None))),
+            RendererKind::Box(b) => b.intersect(&n_ray, inst.pos).map(|(t0, t1)| ((t0, None), (t1, None))),
+            RendererKind::Triangle(tri) => tri.intersect(&n_ray, inst.pos).map(|t| ((t, None), (t, None))),
+            RendererKind::Mesh(ref mesh) => {
                 // get indexes
-                let bvh_idx = self.intersect_bvh(inst, &n_ray, bvh);
+                let bvh_idx = if let Some(ref bvh) = mesh.bvh {
+                    self.intersect_bvh(inst, &n_ray, bvh)
+                } else {
+                    Some((0..mesh.mesh.len()).collect())
+                };
+
                 if bvh_idx.is_none() {
                     return None;
                 }
@@ -408,13 +756,13 @@ impl Renderer {
                 bvh_idx.dedup();
 
                 for idx in bvh_idx {
-                    if let Some((t0, t1)) = n_ray.intersect_triangle(mesh[idx], inst.pos) {
-                        hits.push(((t0, Some(idx)), (t1, Some(idx))));
+                    if let Some(t) = mesh.mesh[idx].intersect(&n_ray, inst.pos) {
+                        hits.push(((t, Some(idx)), (t, Some(idx))));
                     }
                 }
 
-                let max = hits.iter().min_by(|((max, _), _), ((t0, _), _)| max.total_cmp(&t0)).copied();
-                let min = hits.iter().max_by(|(_, (min, _)), (_, (t1, _))| min.total_cmp(&t1)).copied();
+                let max = hits.iter().min_by(|((max, _), _), ((t0, _), _)| max.total_cmp(&t0)).cloned();
+                let min = hits.iter().max_by(|(_, (min, _)), (_, (t1, _))| min.total_cmp(&t1)).cloned();
 
                 if max.is_none() || min.is_none() {
                     return None;
@@ -425,109 +773,6 @@ impl Renderer {
         }
     }
 
-    pub fn gen_bvh(mesh: &Vec<(Vec3f, Vec3f, Vec3f)>, deep: usize) -> Option<BVH> {
-        // helpers
-        let gen_pos = || -> [Vec3f; 8] {
-            [
-                Vec3f::from([1.0, 1.0, 1.0]),
-                Vec3f::from([-1.0, 1.0, 1.0]),
-                Vec3f::from([-1.0, -1.0, 1.0]),
-                Vec3f::from([1.0, -1.0, 1.0]),
-                Vec3f::from([1.0, 1.0, -1.0]),
-                Vec3f::from([-1.0, 1.0, -1.0]),
-                Vec3f::from([-1.0, -1.0, -1.0]),
-                Vec3f::from([1.0, -1.0, -1.0]),
-            ]
-        };
-
-        let tri_in_aabb = |tri: &(Vec3f, Vec3f, Vec3f), aabb: Vec3f, rel_pos: Vec3f| -> bool {
-            let v0 = rel_pos + 0.5 * aabb;
-            let v1 = rel_pos - 0.5 * aabb;
-
-            let vtx_in_aabb = |vtx: Vec3f| {
-                if vtx.x > v0.x || vtx.y > v0.y || vtx.z > v0.z {
-                    return false;
-                }
-    
-                if vtx.x < v1.x || vtx.y < v1.y || vtx.z < v1.z {
-                    return false;
-                }
-
-                true
-            };
-
-            if vtx_in_aabb(tri.0) || vtx_in_aabb(tri.1) || vtx_in_aabb(tri.2) {
-                return true;
-            }
-
-            false
-        };
-
-        fn construct(aabb: Vec3f, rel_pos: Vec3f, mesh: &Vec<(Vec3f, Vec3f, Vec3f)>, d: usize, deep: usize, gen_pos: fn() -> [Vec3f; 8], check_tri: fn(tri: &(Vec3f, Vec3f, Vec3f), aabb: Vec3f, rel_pos: Vec3f) -> bool) -> Option<BVH> {
-            let mut child = BVH {
-                aabb: aabb,
-                rel_pos,
-                content: None,
-                childs: None
-            };
-
-            // get content
-            if d >= deep {
-                let tmp = mesh.iter()
-                    .enumerate()
-                    .filter_map(|(idx, tri)| {
-                        if check_tri(tri, child.aabb, child.rel_pos) {
-                            return Some(idx)
-                        }
-                        None
-                    })
-                    .collect::<Vec<_>>();
-    
-                if tmp.len() != 0 {
-                    child.content = Some(tmp);
-                }
-
-                return Some(child);
-            }
-
-            // get childs
-            let tmp = gen_pos().iter()
-                .copied()
-                .map(|v| construct(0.5 * child.aabb, child.rel_pos + child.aabb.hadam(v * 0.25), mesh, d + 1, deep, gen_pos, check_tri))
-                .filter(|c| c.is_some())
-                .filter(|c| {
-                    let c = c.as_ref().unwrap();
-                    c.content.is_some() || c.childs.is_some()
-                })
-                .collect::<Vec<_>>();
-            
-            if tmp.len() != 0 {
-                child.childs = Some(tmp);
-            }
-
-            Some(child)
-        }
-
-        // construct bvh
-        let it = mesh.iter().copied().flat_map(|v| [v.0, v.1, v.2]);
-
-        let root = construct(
-            Vec3f::from([
-                2.0 * it.clone().max_by(|max, v| max.x.abs().total_cmp(&v.x.abs()))?.x.abs(),
-                2.0 * it.clone().max_by(|max, v| max.y.abs().total_cmp(&v.y.abs()))?.y.abs(),
-                2.0 * it.max_by(|max, v| max.z.abs().total_cmp(&v.z.abs()))?.z.abs(),
-            ]),
-            Vec3f::zero(),
-            mesh,
-            0,
-            deep,
-            gen_pos,
-            tri_in_aabb
-        );
-
-        root
-    }
-
     pub fn normal<'a>(&self, inst: &RendererInstance, hit: &RayHit<'a>) -> Vec3f {
         let hit_p = Vec3f::from(&hit.ray);
 
@@ -536,53 +781,12 @@ impl Renderer {
 
         let n_hit = inst.pos + rot_y * (look * (hit_p - inst.pos));
 
-        let n = match self.kind {
-            RendererKind::Sphere{..} => n_hit - inst.pos,
-            RendererKind::Plane{n} => n,
-            RendererKind::Box{sizes} => {
-                let p = (n_hit - inst.pos).hadam(sizes.recip() * 2.0);
-
-                let pos_r = 1.0-E..1.0+E;
-                let neg_r = -1.0-E..-1.0+E;
-
-                let mut n = Vec3f::zero();
-
-                if pos_r.contains(&p.x) {
-                    // right
-                    n = Vec3f::right()
-                } else if neg_r.contains(&p.x) {
-                    // left
-                    n = -Vec3f::right()
-                } else if pos_r.contains(&p.y) {
-                    // forward
-                    n = Vec3f::forward()
-                } else if neg_r.contains(&p.y) {
-                    // backward
-                    n = -Vec3f::forward()
-                } if pos_r.contains(&p.z) {
-                    // top
-                    n = Vec3f::up()
-                } else if neg_r.contains(&p.z) {
-                    // bottom
-                    n = -Vec3f::up()
-                }
-
-                n
-            },
-            RendererKind::Triangle{vtx} => {
-                let e0 = vtx.1 - vtx.0;
-                let e1 = vtx.2 - vtx.0;
-
-                e0.cross(e1)
-            },
-            RendererKind::Mesh{ref mesh, ..} => {
-                let tri = mesh[hit.idx.unwrap()];
-
-                let e0 = tri.1 - tri.0;
-                let e1 = tri.2 - tri.0;
-
-                e0.cross(e1)
-            }
+        let n = match &self.kind {
+            RendererKind::Sphere(sph) => sph.normal(n_hit, inst.pos),
+            RendererKind::Plane(pln) => pln.normal(n_hit, inst.pos),
+            RendererKind::Box(b) => b.normal(n_hit, inst.pos),
+            RendererKind::Triangle(tri) => tri.normal(n_hit, inst.pos),
+            RendererKind::Mesh(ref mesh) => mesh.mesh[hit.idx.unwrap()].normal(n_hit, inst.pos)
         };
 
         (rot_y * (look * n)).norm()
@@ -593,78 +797,12 @@ impl Renderer {
         let look = Mat4f::lookat(-inst.dir, Vec3f::up());
         let n_hit = inst.pos + rot_y * (look * (hit - inst.pos));
 
-        match self.kind {
-            RendererKind::Sphere{..} => {
-                let v = (n_hit - inst.pos).norm();
-                Vec2f {
-                    x: 0.5 + 0.5 * v.x.atan2(-v.y) / PI,
-                    y: 0.5 - 0.5 * v.z
-                }
-            },
-            RendererKind::Plane{..} => {
-                let mut x = (n_hit.x + 0.5).fract();
-                if x < 0.0 {
-                    x = 1.0 + x;
-                }
-
-                let mut y = (n_hit.y + 0.5).fract();
-                if y < 0.0 {
-                    y = 1.0 + y;
-                }
-
-                Vec2f{x, y}
-            },
-            RendererKind::Box{sizes} => {
-                let p = (n_hit - inst.pos).hadam(sizes.recip() * 2.0);
-
-                let pos_r = 1.0-E..1.0+E;
-                let neg_r = -1.0-E..-1.0+E;
-
-                if pos_r.contains(&p.x) {
-                    // right
-                    return Vec2f {
-                        x: (0.5 + 0.5 * p.y) / 4.0 + 2.0 / 4.0,
-                        y: (0.5 - 0.5 * p.z) / 3.0 + 1.0 / 3.0
-                    }
-                } else if neg_r.contains(&p.x) {
-                    // left
-                    return Vec2f {
-                        x: (0.5 - 0.5 * p.y) / 4.0,
-                        y: (0.5 - 0.5 * p.z) / 3.0 + 1.0 / 3.0
-                    }
-                } else if pos_r.contains(&p.y) {
-                    // forward
-                    return Vec2f {
-                        x: (0.5 - 0.5 * p.x) / 4.0 + 3.0 / 4.0,
-                        y: (0.5 - 0.5 * p.z) / 3.0 + 1.0 / 3.0
-                    };
-                } else if neg_r.contains(&p.y) {
-                    // backward
-                    return Vec2f {
-                        x: (0.5 + 0.5 * p.x) / 4.0 + 1.0 / 4.0,
-                        y: (0.5 - 0.5 * p.z) / 3.0 + 1.0 / 3.0
-                    };
-                } if pos_r.contains(&p.z) {
-                    // top
-                    return Vec2f {
-                        x: (0.5 + 0.5 * p.x) / 4.0 + 1.0 / 4.0,
-                        y: (0.5 - 0.5 * p.y) / 3.0
-                    }
-                } else if neg_r.contains(&p.z) {
-                    // bottom
-                    return Vec2f {
-                        x: (0.5 + 0.5 * p.x) / 4.0 + 1.0 / 4.0,
-                        y: (0.5 + 0.5 * p.y) / 3.0 + 2.0 / 3.0
-                    }
-                } else {
-                    // error
-                    return Vec2f::zero();
-                }
-            },
-            RendererKind::Triangle{vtx} => {
-                todo!()
-            },
-            RendererKind::Mesh{ref mesh, ..} => {
+        match &self.kind {
+            RendererKind::Sphere(sph) => sph.uv(n_hit, inst.pos),
+            RendererKind::Plane(pln) => pln.uv(n_hit, inst.pos),
+            RendererKind::Box(b) => b.uv(n_hit, inst.pos),
+            RendererKind::Triangle(tri) => tri.uv(n_hit, inst.pos),
+            RendererKind::Mesh(..) => {
                 todo!()
             }
         }
